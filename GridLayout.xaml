@@ -45,12 +45,8 @@
           </Trigger>
         </Style.Triggers>
       </Style>
-      <Style x:Key="GridCellStyle" TargetType="{x:Type local:GridButton}">
+      <Style x:Key="GridCellStyle" TargetType="{x:Type Button}">
         <Setter Property="Background" Value="Transparent"/>
-        <!--<Setter Property="Grid.Row" Value="{Binding Row}"/>
-        <Setter Property="Grid.RowSpan" Value="{Binding RowSpan}"/>
-        <Setter Property="Grid.Column" Value="{Binding Column}"/>
-        <Setter Property="Grid.ColumnSpan" Value="{Binding ColumnSpan}"/>-->
         <Setter Property="ContextMenu" Value="{StaticResource GridContextMenu}"/>
         <Setter Property="Visibility" Value="{Binding IsOn, Converter={StaticResource BoolToVisibilityConverter}}"/>
         <Setter Property="Width">
@@ -67,24 +63,6 @@
             <MultiBinding Converter="{StaticResource PercentageToSizeConverter}">
               <Binding RelativeSource="{RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}" Path="ActualHeight"/>
               <Binding Path="Extent.Height" Mode="OneWay"/>
-              <Binding/>
-            </MultiBinding>
-          </Setter.Value>
-        </Setter>
-        <Setter Property="Canvas.Top">
-          <Setter.Value>
-            <MultiBinding Converter="{StaticResource PercentageToSizeConverter}">
-              <Binding RelativeSource="{RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}" Path="ActualHeight"/>
-              <Binding Path="Extent.Top" Mode="OneWay"/>
-              <Binding/>
-            </MultiBinding>
-          </Setter.Value>
-        </Setter>
-        <Setter Property="Canvas.Left">
-          <Setter.Value>
-            <MultiBinding Converter="{StaticResource PercentageToSizeConverter}">
-              <Binding RelativeSource="{RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}" Path="ActualWidth"/>
-              <Binding Path="Extent.Left" Mode="OneWay"/>
               <Binding/>
             </MultiBinding>
           </Setter.Value>
@@ -128,6 +106,11 @@
                   <Setter TargetName="_Overlay" Property="Opacity" Value="0.5"/>
                   <Setter TargetName="_Border" Property="BorderBrush" Value="{StaticResource Esri_Blue3}"/>
                   <Setter TargetName="_Border" Property="BorderThickness" Value="3"/>
+                  <Setter TargetName="_Border" Property="Effect">
+                    <Setter.Value>
+                      <DropShadowEffect ShadowDepth="0" Color="Black" Opacity="1" BlurRadius="20" />
+                    </Setter.Value>
+                  </Setter>
                 </DataTrigger>
                 <Trigger Property="IsMouseOver" Value="True">
                   <Setter TargetName="_Border" Property="Effect">
@@ -149,7 +132,7 @@
     </ResourceDictionary>
   </UserControl.Resources>
 
-  <!--<Grid>
+  <Grid>
     <ItemsControl ItemsSource="{Binding GridElements}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>
@@ -158,23 +141,33 @@
       </ItemsControl.ItemsPanel>
       <ItemsControl.ItemTemplate>
         <DataTemplate>
-          <DataTemplate.Resources>
-            <Style TargetType="TextBlock">
-              <Setter Property="FontSize" Value="18" />
-            </Style>
-          </DataTemplate.Resources>
-          <TextBlock Text="{Binding Text}" />
+          <Button Style="{StaticResource GridCellStyle}" 
+                  PreviewMouseLeftButtonDown="Button_PreviewMouseLeftButtonDown" MouseDoubleClick="Button_MouseDoubleClick" KeyUp="Button_KeyUp"/>
         </DataTemplate>
       </ItemsControl.ItemTemplate>
       <ItemsControl.ItemContainerStyle>
         <Style>
-          <Setter Property="Canvas.Left" Value="{Binding Left}" />
-          <Setter Property="Canvas.Top" Value="{Binding Top}" />
+          <Setter Property="Canvas.Top">
+            <Setter.Value>
+              <MultiBinding Converter="{StaticResource PercentageToSizeConverter}">
+                <Binding RelativeSource="{RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}" Path="ActualHeight"/>
+                <Binding Path="Extent.Top" Mode="OneWay"/>
+                <Binding/>
+              </MultiBinding>
+            </Setter.Value>
+          </Setter>
+          <Setter Property="Canvas.Left">
+            <Setter.Value>
+              <MultiBinding Converter="{StaticResource PercentageToSizeConverter}">
+                <Binding RelativeSource="{RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}" Path="ActualWidth"/>
+                <Binding Path="Extent.Left" Mode="OneWay"/>
+                <Binding/>
+              </MultiBinding>
+            </Setter.Value>
+          </Setter>
         </Style>
       </ItemsControl.ItemContainerStyle>
     </ItemsControl>
-  </Grid>-->
-  
-  <Canvas x:Name="MainCanvas">
-  </Canvas>
+  </Grid>
+
 </UserControl>

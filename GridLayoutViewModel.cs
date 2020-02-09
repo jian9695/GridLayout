@@ -520,16 +520,32 @@ namespace GridLayoutApp
       GridCell group = _gridCells[startRow, startCol];
       group.RowSpan = rowSpan;
       group.ColumnSpan = colSpan;
-      group.PercentWidth = (float)group.ColumnSpan / Columns;
-      group.PercentHeight = (float)group.RowSpan / Rows;
+      float percentWidth = 0;
+      float percentHeight = 0;
+      HashSet<GridCell> rowSet = new HashSet<GridCell>();
+      HashSet<GridCell> colSet = new HashSet<GridCell>();
       for (int row = startRow; row < startRow+rowSpan; row++)
       {
         for (int col = startCol; col < startCol+colSpan; col++)
         {
           GridCell oldCell = _gridCells[row, col];
+          if (row == startRow && !rowSet.Contains(oldCell))
+          {
+            rowSet.Add(oldCell);
+            percentWidth += oldCell.PercentWidth;
+          }
+   
+          if (col == startCol && !colSet.Contains(oldCell))
+          {
+            colSet.Add(oldCell);
+            percentHeight += oldCell.PercentHeight;
+          }
+
           _gridCells[row, col] = group;
         }
       }
+      group.PercentWidth = percentWidth;
+      group.PercentHeight = percentHeight;
       _uniqueGridElements = GetUniqueCells();
       NotifyPropertyChanged(nameof(Rows));
       NotifyPropertyChanged(nameof(Columns));
