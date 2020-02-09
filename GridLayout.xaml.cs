@@ -479,12 +479,12 @@ namespace GridLayoutApp
       else if (e.Key == Key.H)
       {
         ClearSelection();
-        GridLayoutViewModel.SliceHorizontally(cell, 3);
+        GridLayoutViewModel.SliceHorizontally(cell, 2);
       }
       else if (e.Key == Key.V)
       {
         ClearSelection();
-        GridLayoutViewModel.SliceVertically(cell, 3);
+        GridLayoutViewModel.SliceVertically(cell, 2);
       }
     }
 
@@ -602,6 +602,20 @@ namespace GridLayoutApp
         vm.SelectedExtent = extent;
         //_highLightCell.CellExtent = extent;
       }
+    }
+
+    private void Button_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+      Button button = sender as Button;
+      if (button?.DataContext == null)
+        return;
+      GridCell gridCellVM = button.DataContext as GridCell;
+      if (gridCellVM == null)
+        return;
+      GridLayoutViewModel vm = GridLayoutViewModel;
+      if (vm == null)
+        return;
+      vm.FocusedCell = gridCellVM;
     }
   }
 }

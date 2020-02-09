@@ -33,8 +33,28 @@
         <MenuItem Header="Merge" Command="{Binding Path=DataContext.MergeCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="{Binding}"/>
         <MenuItem Header="Set Image" Command="{Binding Path=DataContext.SetImageCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="{Binding}"/>
         <MenuItem Header="Set Background" Command="{Binding Path=DataContext.SetBackgroundCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="{Binding}"/>
-        <MenuItem Header="Split Horizontally" Command="{Binding Path=DataContext.SplitHorizontallyCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="{Binding}"/>
-        <MenuItem Header="Split Vertically" Command="{Binding Path=DataContext.SplitVerticallyCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="{Binding}"/>
+        <MenuItem Header="Split Horizontally" Command="{Binding Path=DataContext.SplitHorizontallyCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="2"/>
+        <MenuItem Header="Split Vertically" Command="{Binding Path=DataContext.SplitVerticallyCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="2"/>
+        <MenuItem Header="Divide Horizontally">
+          <MenuItem Header="Into 3 Parts" Command="{Binding Path=DataContext.SplitHorizontallyCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="3"/>
+          <MenuItem Header="Into 4 Parts" Command="{Binding Path=DataContext.SplitHorizontallyCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="4"/>
+          <MenuItem Header="Into 5 Parts" Command="{Binding Path=DataContext.SplitHorizontallyCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="5"/>
+          <MenuItem Header="Into 6 Parts" Command="{Binding Path=DataContext.SplitHorizontallyCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="6"/>
+          <MenuItem Header="Into 7 Parts" Command="{Binding Path=DataContext.SplitHorizontallyCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="7"/>
+          <MenuItem Header="Into 8 Parts" Command="{Binding Path=DataContext.SplitHorizontallyCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="8"/>
+          <MenuItem Header="Into 9 Parts" Command="{Binding Path=DataContext.SplitHorizontallyCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="9"/>
+          <MenuItem Header="Into 10 Parts" Command="{Binding Path=DataContext.SplitHorizontallyCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="10"/>
+        </MenuItem>
+        <MenuItem Header="Divide Vertically">
+          <MenuItem Header="Into 3 Parts" Command="{Binding Path=DataContext.SplitVerticallyCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="3"/>
+          <MenuItem Header="Into 4 Parts" Command="{Binding Path=DataContext.SplitVerticallyCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="4"/>
+          <MenuItem Header="Into 5 Parts" Command="{Binding Path=DataContext.SplitVerticallyCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="5"/>
+          <MenuItem Header="Into 6 Parts" Command="{Binding Path=DataContext.SplitVerticallyCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="6"/>
+          <MenuItem Header="Into 7 Parts" Command="{Binding Path=DataContext.SplitVerticallyCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="7"/>
+          <MenuItem Header="Into 8 Parts" Command="{Binding Path=DataContext.SplitVerticallyCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="8"/>
+          <MenuItem Header="Into 9 Parts" Command="{Binding Path=DataContext.SplitVerticallyCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="9"/>
+          <MenuItem Header="Into 10 Parts" Command="{Binding Path=DataContext.SplitVerticallyCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}}" CommandParameter="10"/>
+        </MenuItem>
       </ContextMenu>
       
       <Style x:Key="GridSplitterStyle" TargetType="{x:Type GridSplitter}">
@@ -142,7 +162,10 @@
       <ItemsControl.ItemTemplate>
         <DataTemplate>
           <Button Style="{StaticResource GridCellStyle}" 
-                  PreviewMouseLeftButtonDown="Button_PreviewMouseLeftButtonDown" MouseDoubleClick="Button_MouseDoubleClick" KeyUp="Button_KeyUp"/>
+                  PreviewMouseLeftButtonDown="Button_PreviewMouseLeftButtonDown" 
+                  PreviewMouseRightButtonDown="Button_PreviewMouseRightButtonDown"
+                  MouseDoubleClick="Button_MouseDoubleClick" 
+                  KeyUp="Button_KeyUp"/>
         </DataTemplate>
       </ItemsControl.ItemTemplate>
       <ItemsControl.ItemContainerStyle>

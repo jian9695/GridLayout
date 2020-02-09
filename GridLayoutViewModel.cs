@@ -1223,8 +1223,14 @@ namespace GridLayoutApp
 
     public void SplitHorizontally(object param)
     {
-      SliceHorizontally(param as GridCell, 3);
-      NotifyPropertyChanged(nameof(GridCells));
+      if (_focusedCell == null)
+        return;
+      try
+      {
+        int parts = int.Parse(param as string);
+        SliceHorizontally(_focusedCell, parts);
+      }
+      catch (Exception) { };
     }
     #endregion
 
@@ -1247,8 +1253,14 @@ namespace GridLayoutApp
 
     public void SplitVertically(object param)
     {
-      SliceVertically(param as GridCell, 3);
-      NotifyPropertyChanged(nameof(GridCells));
+      if (_focusedCell == null)
+        return;
+      try
+      {
+        int parts = int.Parse(param as string);
+        SliceVertically(_focusedCell, parts);
+      }
+      catch (Exception) { };
     }
     #endregion
     #endregion
