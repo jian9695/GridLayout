@@ -360,7 +360,6 @@ namespace GridLayoutApp
       }
     }
 
-
     public GridLayoutViewModel Parent { get => _parent; set => _parent = value; }
 
     public void Clear()
@@ -388,7 +387,6 @@ namespace GridLayoutApp
     private List<GridCell> _selectedCells = new List<GridCell>();
     private List<GridCell> _uniqueGridElements = new List<GridCell>();
     private GridCell _editedCell = null;
-    private GridCell _focusedCell = null;
     private double _actualWidth = double.NaN;
     private double _actualHeight = double.NaN;
     private readonly float EdgeSnapEpsilon = 0.00001f;
@@ -417,12 +415,6 @@ namespace GridLayoutApp
     public IReadOnlyCollection<GridCell> GridElements
     {
       get { return _uniqueGridElements; }
-    }
-
-    public GridCell FocusedCell
-    {
-      get { return _focusedCell; }
-      set { _focusedCell = value; }
     }
 
     public GridCell EditedCell
@@ -912,11 +904,8 @@ namespace GridLayoutApp
         SetCell(newGridCells, cell);
       }
 
-      GridCells = newGridCells;
+      _gridCells = newGridCells;
       _uniqueGridElements = GetUniqueCells();
-      NotifyPropertyChanged(nameof(Columns));
-      NotifyPropertyChanged(nameof(GridElements));
-      NotifyPropertyChanged(nameof(GridCells));
     }
 
     public void SliceVertically(GridCell targetCell, int numofparts)
@@ -1050,11 +1039,8 @@ namespace GridLayoutApp
         SetCell(newGridCells, cell);
       }
 
-      GridCells = newGridCells;
+      _gridCells = newGridCells;
       _uniqueGridElements = GetUniqueCells();
-      NotifyPropertyChanged(nameof(Rows));
-      NotifyPropertyChanged(nameof(GridElements));
-      NotifyPropertyChanged(nameof(GridCells));
     }
 
     #region Commands
@@ -1223,12 +1209,16 @@ namespace GridLayoutApp
 
     public void SplitHorizontally(object param)
     {
-      if (_focusedCell == null)
-        return;
       try
       {
         int parts = int.Parse(param as string);
-        SliceHorizontally(_focusedCell, parts);
+        foreach (GridCell cell in SelectedCells)
+        {
+          SliceHorizontally(cell, parts);
+        }
+        NotifyPropertyChanged(nameof(Columns));
+        NotifyPropertyChanged(nameof(GridElements));
+        NotifyPropertyChanged(nameof(GridCells));
       }
       catch (Exception) { };
     }
@@ -1253,12 +1243,16 @@ namespace GridLayoutApp
 
     public void SplitVertically(object param)
     {
-      if (_focusedCell == null)
-        return;
       try
       {
         int parts = int.Parse(param as string);
-        SliceVertically(_focusedCell, parts);
+        foreach(GridCell cell in SelectedCells)
+        {
+          SliceVertically(cell, parts);
+        }
+        NotifyPropertyChanged(nameof(Rows));
+        NotifyPropertyChanged(nameof(GridElements));
+        NotifyPropertyChanged(nameof(GridCells));
       }
       catch (Exception) { };
     }

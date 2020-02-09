@@ -526,7 +526,6 @@ namespace GridLayoutApp
       GridLayoutViewModel vm = GridLayoutViewModel;
       if (vm == null)
         return;
-      vm.FocusedCell = gridCellVM;
 
       if ((Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift)) && vm.SelectedCells.Count > 0)
       {
@@ -609,13 +608,18 @@ namespace GridLayoutApp
       Button button = sender as Button;
       if (button?.DataContext == null)
         return;
-      GridCell gridCellVM = button.DataContext as GridCell;
-      if (gridCellVM == null)
+      GridCell cell = button.DataContext as GridCell;
+      if (cell == null)
         return;
       GridLayoutViewModel vm = GridLayoutViewModel;
       if (vm == null)
         return;
-      vm.FocusedCell = gridCellVM;
+      if (vm.SelectedCells.Contains(cell))
+        return;
+      ClearSelection();
+      cell.IsSelected = true;
+      cell.IsHighlighted = true;
+      vm.SelectedCells.Add(cell);
     }
   }
 }
