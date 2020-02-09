@@ -197,7 +197,7 @@ namespace GridLayoutApp
   public partial class GridLayout : UserControl
   {
     private Random _rndColor = new Random();
-    //private GridCell _highLightCell = new GridCell(0, 0, 1, 1);
+    private GridCell _highLightCell = new GridCell(0, 0, 1, 1);
     public GridLayoutViewModel GridLayoutViewModel
     {
       get { return DataContext as GridLayoutViewModel; }
@@ -212,7 +212,20 @@ namespace GridLayoutApp
 
     private void GridLayout_Loaded(object sender, RoutedEventArgs e)
     {
-
+      GridLayoutViewModel vm = GridLayoutViewModel;
+      if (vm == null)
+        return;
+      _highLightCell.IsOn = _highLightCell.IsHighlightOverlay = (vm.SelectedCells?.Count > 0);
+      if (_highLightCell.IsOn)
+      {
+        _highLightCell.CellExtent = vm.SelectedExtent;
+        _highLightCell.IsHighlightOverlay = true;
+      }
+      Button highlightButton = GenerateButton(_highLightCell);
+      _highLightCell.TextBlock.Text = "";
+      highlightButton.IsHitTestVisible = false;
+      highlightButton.DataContext = _highLightCell;
+      //MainCanvas.Children.Add(highlightButton);
     }
 
     private void GridLayout_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -515,75 +528,80 @@ namespace GridLayoutApp
         return;
       vm.FocusedCell = gridCellVM;
 
-      //if ((Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift)) && vm.SelectedCells.Count > 0)
-      //{
-      //  //_highLightCell.IsOn = true;
-      //  //_highLightCell.IsHighlightOverlay = true;
-      //  GridCell lastSelected = vm.SelectedCells[vm.SelectedCells.Count - 1];
-      //  System.Drawing.Rectangle extent = System.Drawing.Rectangle.Union(lastSelected.CellExtent, gridCellVM.CellExtent);
-      //  Dictionary<GridCell, GridCell> selectSet = new Dictionary<GridCell, GridCell>();
-      //  foreach (GridCell cell in vm.SelectedCells)
-      //  {
-      //    selectSet[cell] = cell;
-      //    extent = System.Drawing.Rectangle.Union(cell.CellExtent, extent);
-      //  }
+      if ((Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift)) && vm.SelectedCells.Count > 0)
+      {
+        //_highLightCell.IsOn = true;
+        //_highLightCell.IsHighlightOverlay = true;
+        GridCell lastSelected = vm.SelectedCells[vm.SelectedCells.Count - 1];
+        System.Drawing.Rectangle extent = System.Drawing.Rectangle.Union(lastSelected.CellExtent, gridCellVM.CellExtent);
+        Dictionary<GridCell, GridCell> selectSet = new Dictionary<GridCell, GridCell>();
+        foreach (GridCell cell in vm.SelectedCells)
+        {
+          selectSet[cell] = cell;
+          extent = System.Drawing.Rectangle.Union(cell.CellExtent, extent);
+        }
 
-      //  while (true)
-      //  {
-      //    int selCount = 0;
-      //    foreach(GridCell cell in vm.GridElements)
-      //    {
-      //      cell.IsHighlighted = false;
-      //      if (cell.CellExtent.IntersectsWith(extent))
-      //      {
-      //        if (selectSet.ContainsKey(cell))
-      //          continue;
-      //        extent = System.Drawing.Rectangle.Union(cell.CellExtent, extent);
-      //        cell.IsSelected = true;
-      //        vm.SelectedCells.Add(cell);
-      //        selectSet[cell] = cell;
-      //        selCount++;
-      //      }
-      //    }
+        while (true)
+        {
+          int selCount = 0;
+          foreach (GridCell cell in vm.GridElements)
+          {
+            if (cell.CellExtent.IntersectsWith(extent))
+            {
+              if (selectSet.ContainsKey(cell))
+                continue;
+              extent = System.Drawing.Rectangle.Union(cell.CellExtent, extent);
+              cell.IsSelected = true;
+              cell.IsHighlighted = true;
+              vm.SelectedCells.Add(cell);
+              selectSet[cell] = cell;
+              selCount++;
+            }
+            else
+            {
+              cell.IsHighlighted = false;
+            }
+          }
 
-      //    if (selCount == 0)
-      //      break;
-      //  }
+          if (selCount == 0)
+            break;
+        }
 
-      //  _highLightCell.CellExtent = extent;
-      //  vm.SelectedExtent = extent;
-      //}
-      //else
-      //{
+        //_highLightCell.CellExtent = extent;
+        vm.SelectedExtent = extent;
+      }
+      else
+      {
         if (!Keyboard.IsKeyDown(Key.LeftCtrl) && !Keyboard.IsKeyDown(Key.RightCtrl))
         {
           ClearSelection();
         }
-      //_highLightCell.IsOn = false;
-      if (vm.SelectedCells.Contains(gridCellVM))
-      {
-        gridCellVM.IsSelected = false;
-        gridCellVM.IsHighlighted = false;
-        vm.SelectedCells.Remove(gridCellVM);
-      }
-      else
-      {
-        gridCellVM.IsSelected = true;
-        vm.SelectedCells.Add(gridCellVM);
-      }
+        //_highLightCell.IsOn = false;
+        if (vm.SelectedCells.Contains(gridCellVM))
+        {
+          gridCellVM.IsSelected = false;
+          gridCellVM.IsHighlighted = false;
+          vm.SelectedCells.Remove(gridCellVM);
+        }
+        else
+        {
+          gridCellVM.IsSelected = true;
+          gridCellVM.IsHighlighted = true;
+          vm.SelectedCells.Add(gridCellVM);
+        }
 
-      if (vm.SelectedCells.Count == 0)
-        return;
-      GridCell lastSelected = vm.SelectedCells[vm.SelectedCells.Count - 1];
-      System.Drawing.Rectangle extent = System.Drawing.Rectangle.Union(lastSelected.CellExtent, gridCellVM.CellExtent);
-      foreach (GridCell cell in vm.SelectedCells)
-      {
-        cell.IsHighlighted = true;
-        extent = System.Drawing.Rectangle.Union(cell.CellExtent, extent);
+        if (vm.SelectedCells.Count == 0)
+          return;
+        GridCell lastSelected = vm.SelectedCells[vm.SelectedCells.Count - 1];
+        System.Drawing.Rectangle extent = System.Drawing.Rectangle.Union(lastSelected.CellExtent, gridCellVM.CellExtent);
+        foreach (GridCell cell in vm.SelectedCells)
+        {
+          cell.IsHighlighted = true;
+          extent = System.Drawing.Rectangle.Union(cell.CellExtent, extent);
+        }
+        vm.SelectedExtent = extent;
+        //_highLightCell.CellExtent = extent;
       }
-      vm.SelectedExtent = extent;
-      //_highLightCell.CellExtent = extent;
-      //}
     }
   }
 }

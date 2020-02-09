@@ -546,6 +546,99 @@ namespace GridLayoutApp
       }
       group.PercentWidth = percentWidth;
       group.PercentHeight = percentHeight;
+
+
+      if(group.ColumnSpan == Columns && group.Row == 0 && group.RowSpan > 1)
+      {
+        rowSet.Clear();
+        int newRows = Rows - group.RowSpan + 1;
+        GridCell[,] newGridCells = new GridCell[newRows, Columns];
+        for (int col = 0; col < Columns; col++)
+        {
+          newGridCells[0, col] = group;
+        }
+        for (int row = group.RowSpan; row < Rows; row++)
+        {
+          for (int col = 0; col < Columns; col++)
+          {
+            GridCell cell = _gridCells[row,col];
+            if (!rowSet.Contains(cell))
+            {
+              cell.Row = cell.Row - (group.RowSpan - 1);
+              rowSet.Add(cell);
+            }
+            newGridCells[row - group.RowSpan + 1, col] = cell;
+          }
+        }
+        group.RowSpan = 1;
+        _gridCells = newGridCells;
+      }
+      else if (group.ColumnSpan == Columns && group.Row == Rows - group.RowSpan && group.RowSpan > 1)
+      {
+        int newRows = Rows - group.RowSpan + 1;
+        GridCell[,] newGridCells = new GridCell[newRows, Columns];
+        for (int col = 0; col < Columns; col++)
+        {
+          newGridCells[newRows - 1, col] = group;
+        }
+        for (int row = 0; row < Rows - group.RowSpan; row++)
+        {
+          for (int col = 0; col < Columns; col++)
+          {
+            GridCell cell = _gridCells[row, col];
+            newGridCells[row, col] = cell;
+          }
+        }
+        group.RowSpan = 1;
+        _gridCells = newGridCells;
+      }
+      if (group.RowSpan == Rows && group.Column == 0 && group.ColumnSpan > 1)
+      {
+        colSet.Clear();
+        int newCols = Columns - group.ColumnSpan + 1;
+        GridCell[,] newGridCells = new GridCell[Rows, newCols];
+        for (int row = 0; row < Rows; row++)
+        {
+          newGridCells[row, 0] = group;
+        }
+
+        for (int row = 0; row < Rows; row++)
+        {
+          for (int col = group.ColumnSpan; col < Columns; col++)
+          {
+            GridCell cell = _gridCells[row, col];
+            if (!colSet.Contains(cell))
+            {
+              cell.Column = cell.Column - (group.ColumnSpan - 1);
+              colSet.Add(cell);
+            }
+            newGridCells[row, col - group.ColumnSpan + 1] = cell;
+          }
+        }
+        group.ColumnSpan = 1;
+        _gridCells = newGridCells;
+      }
+      else if (group.RowSpan == Rows && group.Column == Columns - group.ColumnSpan && group.ColumnSpan > 1)
+      {
+        int newCols = Columns - group.ColumnSpan + 1;
+        GridCell[,] newGridCells = new GridCell[Rows, newCols];
+        for (int row = 0; row < Rows; row++)
+        {
+          newGridCells[row, newCols - 1] = group;
+        }
+
+        for (int row = 0; row < Rows; row++)
+        {
+          for (int col = 0; col < Columns - group.ColumnSpan; col++)
+          {
+            GridCell cell = _gridCells[row, col];
+            newGridCells[row, col] = cell;
+          }
+        }
+        group.ColumnSpan = 1;
+        _gridCells = newGridCells;
+      }
+
       _uniqueGridElements = GetUniqueCells();
       NotifyPropertyChanged(nameof(Rows));
       NotifyPropertyChanged(nameof(Columns));
