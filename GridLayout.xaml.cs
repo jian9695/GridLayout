@@ -486,6 +486,10 @@ namespace GridLayoutApp
         ClearSelection();
         GridLayoutViewModel.SliceVertically(cell, 2);
       }
+      else if (e.Key == Key.M)
+      {
+        GridLayoutViewModel.Merge(cell);
+      }
     }
 
     private void Button_MouseDoubleClick(object sender, MouseButtonEventArgs e)

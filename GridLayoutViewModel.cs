@@ -906,6 +906,9 @@ namespace GridLayoutApp
 
       _gridCells = newGridCells;
       _uniqueGridElements = GetUniqueCells();
+      NotifyPropertyChanged(nameof(Columns));
+      NotifyPropertyChanged(nameof(GridElements));
+      NotifyPropertyChanged(nameof(GridCells));
     }
 
     public void SliceVertically(GridCell targetCell, int numofparts)
@@ -1041,6 +1044,9 @@ namespace GridLayoutApp
 
       _gridCells = newGridCells;
       _uniqueGridElements = GetUniqueCells();
+      NotifyPropertyChanged(nameof(Rows));
+      NotifyPropertyChanged(nameof(GridElements));
+      NotifyPropertyChanged(nameof(GridCells));
     }
 
     #region Commands
@@ -1216,9 +1222,6 @@ namespace GridLayoutApp
         {
           SliceHorizontally(cell, parts);
         }
-        NotifyPropertyChanged(nameof(Columns));
-        NotifyPropertyChanged(nameof(GridElements));
-        NotifyPropertyChanged(nameof(GridCells));
       }
       catch (Exception) { };
     }
@@ -1250,9 +1253,6 @@ namespace GridLayoutApp
         {
           SliceVertically(cell, parts);
         }
-        NotifyPropertyChanged(nameof(Rows));
-        NotifyPropertyChanged(nameof(GridElements));
-        NotifyPropertyChanged(nameof(GridCells));
       }
       catch (Exception) { };
     }
