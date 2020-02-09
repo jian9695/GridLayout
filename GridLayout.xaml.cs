@@ -247,12 +247,6 @@ namespace GridLayoutApp
       button.PreviewMouseLeftButtonDown += Button_PreviewMouseLeftButtonDown;
       button.MouseDoubleClick += Button_MouseDoubleClick;
       button.KeyUp += Button_KeyUp;
-      cell.TextBlock.FontSize = 16;
-      cell.TextBlock.FontWeight = FontWeights.Bold;
-      //cell.TextBlock.Foreground = new SolidColorBrush(Color.FromRgb((byte)_rndColor.Next(256), (byte)_rndColor.Next(256), (byte)_rndColor.Next(256)));
-      cell.TextBlock.Foreground = Brushes.Black;
-      cell.Border.Background = new SolidColorBrush(Color.FromRgb((byte)_rndColor.Next(256), (byte)_rndColor.Next(256), (byte)_rndColor.Next(256)));
-      cell.Border.BorderThickness = new Thickness(1);
       return button;
     }
 

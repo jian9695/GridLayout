@@ -54,6 +54,8 @@ namespace GridLayoutApp
     {
       PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
+
+    private static Random _rndColor = new Random();
     private TextBlock _textBlock;
     private Border _border;
     private Image _image;
@@ -93,6 +95,8 @@ namespace GridLayoutApp
       _border = new Border();
       _image = new Image();
       _textBlock.TextWrapping = TextWrapping.Wrap;
+      Border.Background = new SolidColorBrush(Color.FromRgb((byte)_rndColor.Next(256), (byte)_rndColor.Next(256), (byte)_rndColor.Next(256)));
+      ApplyButtonStyle();
     }
 
     public GridCell(GridCell copyFrom)
@@ -114,6 +118,18 @@ namespace GridLayoutApp
       _displayContent = copyFrom.DisplayContent;
       _extent = copyFrom.Extent;
       _parent = copyFrom.Parent;
+      Border.Background = new SolidColorBrush(Color.FromRgb((byte)_rndColor.Next(256), (byte)_rndColor.Next(256), (byte)_rndColor.Next(256)));
+      ApplyButtonStyle();
+    }
+
+    public void ApplyButtonStyle()
+    {
+      TextBlock.FontSize = 16;
+      TextBlock.FontWeight = FontWeights.Bold;
+      //cell.TextBlock.Foreground = new SolidColorBrush(Color.FromRgb((byte)_rndColor.Next(256), (byte)_rndColor.Next(256), (byte)_rndColor.Next(256)));
+      TextBlock.Text = Row.ToString().PadRight(2) + "," + Column.ToString().PadRight(2);
+      TextBlock.Foreground = Brushes.Black;
+      Border.BorderThickness = new Thickness(1);
     }
 
     public bool IsGroup { get { return _rowSpan > 1 || _columnSpan > 1; } }
@@ -375,6 +391,7 @@ namespace GridLayoutApp
     private GridCell _focusedCell = null;
     private double _actualWidth = double.NaN;
     private double _actualHeight = double.NaN;
+    private readonly float EdgeSnapEpsilon = 0.00001f;
 
     public GridLayoutViewModel()
     {
@@ -649,14 +666,13 @@ namespace GridLayoutApp
       {
         if (!uniqueSet.Contains(cell))
         {
+          cell.ApplyButtonStyle();
           cells.Add(cell);
           uniqueSet.Add(cell);
         }
       }
       return cells;
     }
-
-    public readonly float EdgeSnapEpsilon = 0.00001f;
 
     public void SliceHorizontally(GridCell targetCell, int numofparts)
     {
