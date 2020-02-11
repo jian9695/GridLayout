@@ -65,6 +65,7 @@
           </Trigger>
         </Style.Triggers>
       </Style>
+      
       <Style x:Key="GridCellStyle" TargetType="{x:Type Button}">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="ContextMenu" Value="{StaticResource GridContextMenu}"/>
@@ -149,11 +150,62 @@
           </Setter.Value>
         </Setter>
       </Style>
+
+      <Style x:Key="CanvasContainerStyle">
+        <Setter Property="Canvas.Top">
+          <Setter.Value>
+            <MultiBinding Converter="{StaticResource PercentageToSizeConverter}">
+              <Binding RelativeSource="{RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}" Path="ActualHeight"/>
+              <Binding Path="Extent.Top" Mode="OneWay"/>
+              <Binding/>
+            </MultiBinding>
+          </Setter.Value>
+        </Setter>
+        <Setter Property="Canvas.Left">
+          <Setter.Value>
+            <MultiBinding Converter="{StaticResource PercentageToSizeConverter}">
+              <Binding RelativeSource="{RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}" Path="ActualWidth"/>
+              <Binding Path="Extent.Left" Mode="OneWay"/>
+              <Binding/>
+            </MultiBinding>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      
+      <Style x:Key="GraticuleStyle" TargetType="{x:Type Button}">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Width">
+          <Setter.Value>
+            <MultiBinding Converter="{StaticResource PercentageToSizeConverter}">
+              <Binding RelativeSource="{RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}" Path="ActualWidth"/>
+              <Binding Path="Extent.Width" Mode="OneWay"/>
+              <Binding/>
+            </MultiBinding>
+          </Setter.Value>
+        </Setter>
+        <Setter Property="Height">
+          <Setter.Value>
+            <MultiBinding Converter="{StaticResource PercentageToSizeConverter}">
+              <Binding RelativeSource="{RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}" Path="ActualHeight"/>
+              <Binding Path="Extent.Height" Mode="OneWay"/>
+              <Binding/>
+            </MultiBinding>
+          </Setter.Value>
+        </Setter>
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="{x:Type Button}">
+              <Rectangle x:Name="_Border" Margin="{Binding Margin}" Stroke="Black" StrokeThickness="1" StrokeDashArray="4 4">
+              </Rectangle>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
     </ResourceDictionary>
   </UserControl.Resources>
 
   <Grid>
-    <ItemsControl ItemsSource="{Binding GridElements}">
+    <ItemsControl ItemsSource="{Binding GridElements}" ItemContainerStyle="{StaticResource CanvasContainerStyle}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>
           <Canvas x:Name="MainCanvas"/>
@@ -168,28 +220,18 @@
                   KeyUp="Button_KeyUp"/>
         </DataTemplate>
       </ItemsControl.ItemTemplate>
-      <ItemsControl.ItemContainerStyle>
-        <Style>
-          <Setter Property="Canvas.Top">
-            <Setter.Value>
-              <MultiBinding Converter="{StaticResource PercentageToSizeConverter}">
-                <Binding RelativeSource="{RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}" Path="ActualHeight"/>
-                <Binding Path="Extent.Top" Mode="OneWay"/>
-                <Binding/>
-              </MultiBinding>
-            </Setter.Value>
-          </Setter>
-          <Setter Property="Canvas.Left">
-            <Setter.Value>
-              <MultiBinding Converter="{StaticResource PercentageToSizeConverter}">
-                <Binding RelativeSource="{RelativeSource Mode=FindAncestor, AncestorType={x:Type UserControl}}" Path="ActualWidth"/>
-                <Binding Path="Extent.Left" Mode="OneWay"/>
-                <Binding/>
-              </MultiBinding>
-            </Setter.Value>
-          </Setter>
-        </Style>
-      </ItemsControl.ItemContainerStyle>
+    </ItemsControl>
+    <ItemsControl ItemsSource="{Binding Graticule}" ItemContainerStyle="{StaticResource CanvasContainerStyle}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <Canvas x:Name="MainCanvas"/>
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate>
+          <Button Style="{StaticResource GraticuleStyle}"/>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
     </ItemsControl>
   </Grid>
 

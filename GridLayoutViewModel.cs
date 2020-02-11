@@ -417,6 +417,24 @@ namespace GridLayoutApp
       get { return _uniqueGridElements; }
     }
 
+    public IReadOnlyCollection<GridCell> Graticule
+    {
+      get
+      {
+        List<GridCell> graticuleCells = new List<GridCell>();
+        foreach (GridCell cell in _uniqueGridElements)
+        {
+          GridCell colCell = new GridCell(0, 0, 1, 1, this);
+          colCell.Extent = new System.Drawing.RectangleF(cell.Extent.X, 0, cell.Extent.Width, 1);
+          GridCell rowCell = new GridCell(0, 0, 1, 1, this);
+          rowCell.Extent = new System.Drawing.RectangleF(0, cell.Extent.Y, 1, cell.Extent.Height);
+          graticuleCells.Add(rowCell);
+          graticuleCells.Add(colCell);
+        }
+        return graticuleCells;
+      }
+    }
+
     public GridCell EditedCell
     {
       get { return _editedCell; }
@@ -505,6 +523,7 @@ namespace GridLayoutApp
       NotifyPropertyChanged(nameof(Columns));
       NotifyPropertyChanged(nameof(GridElements));
       NotifyPropertyChanged(nameof(GridCells));
+      NotifyPropertyChanged(nameof(Graticule));
     }
 
     public void MergeCells(int startRow, int startCol, int rowSpan, int colSpan)
@@ -633,6 +652,7 @@ namespace GridLayoutApp
       NotifyPropertyChanged(nameof(Columns));
       NotifyPropertyChanged(nameof(GridElements));
       NotifyPropertyChanged(nameof(GridCells));
+      NotifyPropertyChanged(nameof(Graticule));
     }
 
     /// <summary>
@@ -718,12 +738,14 @@ namespace GridLayoutApp
         }
       }
       float[] columnSizes = new float[Columns];
+      int[] columnSharedFlags = new int[Columns];//is shared columns
       float[] columnEdges = new float[Columns + 1];
       columnEdges[0] = 0;
       for (int col = 0; col < Columns; col++)
       {
         columnEdges[col+1] = float.NaN;
         columnSizes[col] = float.NaN;
+        columnSharedFlags[col] = 0;
       }
       for (int col = 0; col < Columns; col++)
       {
@@ -733,7 +755,7 @@ namespace GridLayoutApp
         List<GridCell> intersectingCells = cellsOrderedByColumn[col];
         int leftEdge = col;
         int rightEdge = col + 1;
-        if (intersectingCells == null)
+        if (intersectingCells == null || intersectingCells.Count == 0)
         {
           columnSizes[col] = 0;
           columnEdges[rightEdge] = columnEdges[leftEdge];
@@ -744,12 +766,17 @@ namespace GridLayoutApp
         int minSpanColId = 0;
         float colSize = float.NaN;
         int id = -1;
+        System.Drawing.Rectangle overlappedExtent = intersectingCells[0].CellExtent;
+        overlappedExtent = new System.Drawing.Rectangle(overlappedExtent.X, 0, overlappedExtent.Width, 1);
         foreach (GridCell cell in intersectingCells)
         {
           id++;
-          if (isUniformSpan && cell.ColumnSpan != intersectingCells[0].ColumnSpan)
+          columnEdges[cell.Column] = cell.Extent.Left;
+          columnEdges[cell.Column + cell.ColumnSpan] = cell.Extent.Right;
+          if (isUniformSpan && (cell.Column != intersectingCells[0].Column || cell.ColumnSpan != intersectingCells[0].ColumnSpan))
             isUniformSpan = false;
-          if(cell.ColumnSpan == 1)
+          overlappedExtent.Intersect(new System.Drawing.Rectangle(cell.CellExtent.X, 0, cell.CellExtent.Width, 1));
+          if (cell.ColumnSpan == 1)
           {
             colSize = cell.PercentWidth;
             break;
@@ -785,47 +812,90 @@ namespace GridLayoutApp
             {
               colSize = minSpanCell.PercentWidth / minSpanCell.ColumnSpan;
               columnSizes[col] = colSize;
-              for (int colToSet = minSpanCell.Column; colToSet < Columns; colToSet++)
+              for (int colToSet = minSpanCell.Column; colToSet < minSpanCell.Column + minSpanCell.ColumnSpan; colToSet++)
               {
                 columnSizes[colToSet] = colSize;
               }
             }
           }
+
+          if(float.IsNaN(columnSizes[col]) && overlappedExtent.Width > 0)
+          {
+            for (int colToSet = overlappedExtent.X; colToSet < overlappedExtent.X + overlappedExtent.Width; colToSet++)
+            {
+              columnSharedFlags[colToSet] = 1;
+            }
+          }
         }
       }
 
-      while (true)
+
+      for (int col = 0; col < Columns; col++)
       {
-        bool allColsKnown = true;
-        for (int col = 0; col < Columns; col++)
+        if (!float.IsNaN(columnSizes[col]))
         {
-          if (!float.IsNaN(columnSizes[col]))
+          continue;
+        }
+        List<GridCell> intersectingCells = cellsOrderedByColumn[col];
+        foreach (GridCell cell in intersectingCells)
+        {
+          if (cell.ColumnSpan == 1 && !float.IsNaN(columnSizes[cell.Column]))
           {
-            continue;
+            columnSizes[col] = cell.PercentWidth;
+            break;
           }
-          allColsKnown = false;
-          List<GridCell> intersectingCells = cellsOrderedByColumn[col];
-          foreach (GridCell cell in intersectingCells)
+          float colSize = cell.PercentWidth;
+          bool isSet = true;
+          for (int colToGet = cell.Column; colToGet < cell.Column + cell.ColumnSpan; colToGet++)
           {
-            if(cell.ColumnSpan == 1 && !float.IsNaN(columnEdges[cell.Column]))
+            if (colToGet == col)
+              continue;
+            if (float.IsNaN(columnSizes[colToGet]))
             {
-              columnEdges[col] = cell.PercentWidth;
+              isSet = false;
               break;
             }
-            float colSize = cell.PercentWidth;
-            for (int colToGet = cell.Column; colToGet < cell.Column+cell.ColumnSpan; colToGet++)
-            {
-              if (colToGet == col)
-                continue;
-              if(float.IsNaN(columnSizes[colToGet]))
-                break;
-              colSize -= columnSizes[colToGet];
-            }
-            columnSizes[col] = colSize;
+            colSize -= columnSizes[colToGet];
           }
+          if (isSet)
+            columnSizes[col] = colSize;
         }
-        if (allColsKnown)
-          break;
+      }
+
+      for (int col = 0; col < Columns; col++)
+      {
+        int leftEdge = col;
+        int rightEdge = col + 1;
+        if (float.IsNaN(columnEdges[leftEdge]) && float.IsNaN(columnSizes[col]))
+          continue;
+        columnEdges[rightEdge] = columnEdges[leftEdge] + columnSizes[col];
+      }
+
+      for (int col = 0; col < Columns; col++)
+      {
+        if (!float.IsNaN(columnSizes[col]))
+          continue;
+        int startCol = col;
+        int endCol = col;
+        while(endCol < Columns - 1)
+        {
+          if (!float.IsNaN(columnSizes[endCol]))
+          {
+            endCol--;
+            break;
+          }
+          endCol++;
+        }
+        int leftEdge = col;
+        int rightEdge = endCol + 1;
+        if (float.IsNaN(columnEdges[leftEdge]) || float.IsNaN(columnSizes[rightEdge]))
+          continue;
+        float colSize = (columnEdges[rightEdge] - columnEdges[leftEdge]) / (endCol - startCol + 1);
+        while(startCol <= endCol)
+        {
+          columnSizes[startCol] = colSize;
+          startCol++;
+        }
       }
 
       for (int col = 0; col < Columns; col++)
@@ -833,6 +903,8 @@ namespace GridLayoutApp
         List<GridCell> intersectingCells = cellsOrderedByColumn[col];
         int leftEdge = col;
         int rightEdge = col + 1;
+        if (float.IsNaN(columnEdges[leftEdge]) || float.IsNaN(columnSizes[col]))
+          continue;
         columnEdges[rightEdge] = columnEdges[leftEdge] + columnSizes[col];
       }
       return columnEdges;
@@ -999,6 +1071,7 @@ namespace GridLayoutApp
       NotifyPropertyChanged(nameof(Columns));
       NotifyPropertyChanged(nameof(GridElements));
       NotifyPropertyChanged(nameof(GridCells));
+      NotifyPropertyChanged(nameof(Graticule));
     }
 
     public void SliceVertically(GridCell targetCell, int numofparts)
@@ -1137,6 +1210,7 @@ namespace GridLayoutApp
       NotifyPropertyChanged(nameof(Rows));
       NotifyPropertyChanged(nameof(GridElements));
       NotifyPropertyChanged(nameof(GridCells));
+      NotifyPropertyChanged(nameof(Graticule));
     }
 
     #region Commands
@@ -1172,6 +1246,7 @@ namespace GridLayoutApp
     public void Merge(object param)
     {
       MergeCells(SelectedExtent.Y, SelectedExtent.X, SelectedExtent.Height, SelectedExtent.Width);
+      ClearSelection();
       NotifyPropertyChanged(nameof(GridCells));
     }
     #endregion
@@ -1312,6 +1387,7 @@ namespace GridLayoutApp
         {
           SliceHorizontally(cell, parts);
         }
+        ClearSelection();
       }
       catch (Exception) { };
     }
@@ -1343,6 +1419,7 @@ namespace GridLayoutApp
         {
           SliceVertically(cell, parts);
         }
+        ClearSelection();
       }
       catch (Exception) { };
     }
