@@ -132,7 +132,7 @@ namespace GridLayoutApp
       Border.BorderThickness = new Thickness(1);
     }
 
-    public bool IsGroup { get { return _rowSpan > 1 || _columnSpan > 1; } }
+    public bool IsMerged { get { return _rowSpan > 1 || _columnSpan > 1; } }
 
     public int Row
     {
@@ -387,9 +387,8 @@ namespace GridLayoutApp
     private List<GridCell> _selectedCells = new List<GridCell>();
     private List<GridCell> _uniqueGridElements = new List<GridCell>();
     private GridCell _editedCell = null;
-    private double _actualWidth = double.NaN;
-    private double _actualHeight = double.NaN;
     private readonly float EdgeSnapEpsilon = 0.00001f;
+    private System.Drawing.Rectangle _selectedExtent = new System.Drawing.Rectangle(0, 0, 0, 0);
 
     public GridLayoutViewModel()
     {
@@ -441,25 +440,11 @@ namespace GridLayoutApp
       set { _editedCell = value; }
     }
 
-    public List<GridCell> SelectedCells { get { return _selectedCells; } }
+    public IReadOnlyList<GridCell> SelectedCells { get { return  _selectedCells.AsReadOnly(); } }
 
-    public System.Drawing.Rectangle SelectedExtent { get; set; } = new System.Drawing.Rectangle(0, 0, 0, 0);
+    public System.Drawing.Rectangle SelectedExtent { get { return _selectedExtent; } }
 
-    public double ActualWidth { get => _actualWidth; set => _actualWidth = value; }
-
-    public double ActualHeight { get => _actualHeight; set => _actualHeight = value; }
-
-    private void FindGridExtent(ObservableCollection<GridCell> cells, out int rows, out int columns)
-    {
-      System.Drawing.Rectangle extent = new System.Drawing.Rectangle(0, 0, 0, 0);
-      foreach (GridCell cell in cells)
-      {
-        extent = System.Drawing.Rectangle.Union(extent, cell.CellExtent);
-      }
-      rows = extent.Height;
-      columns = extent.Width;
-    }
-
+    #region Public methods
     public void SelectAll()
     {
       _selectedCells.Clear();
@@ -468,7 +453,7 @@ namespace GridLayoutApp
         for (int col = 0; col < Columns; col++)
         {
           GridCell cell = _gridCells[row, col];
-          if (cell.IsGroup && (cell.Row != row || cell.Column != col))
+          if (cell.IsMerged && (cell.Row != row || cell.Column != col))
             continue;
           cell.IsSelected = true;
           cell.IsOn = true;
@@ -478,8 +463,35 @@ namespace GridLayoutApp
           _selectedCells.Add(cell);
         }
       }
-      SelectedExtent = new System.Drawing.Rectangle(0, 0, Columns, Rows);
+      UpdateSelectionExtent();
       NotifyPropertyChanged(nameof(SelectedCells));
+    }
+
+    public void AddToSelection(GridCell cell)
+    {
+      if (cell == null)
+        return;
+      cell.IsSelected = true;
+      cell.IsHighlighted = true;
+      if(!_selectedCells.Contains(cell))
+      {
+        _selectedCells.Add(cell);
+        UpdateSelectionExtent();
+        NotifyPropertyChanged(nameof(SelectedCells));
+      }
+    }
+
+    public void RemoveFromSelection(GridCell cell)
+    {
+      if (cell == null)
+        return;
+      cell.IsSelected = false;
+      cell.IsHighlighted = false;
+      if (_selectedCells.Remove(cell))
+      {
+        UpdateSelectionExtent();
+        NotifyPropertyChanged(nameof(SelectedCells));
+      }
     }
 
     public void ClearSelection()
@@ -490,7 +502,7 @@ namespace GridLayoutApp
         for (int col = 0; col < Columns; col++)
         {
           GridCell cell = _gridCells[row, col];
-          if (cell.IsGroup && (cell.Row != row || cell.Column != col))
+          if (cell.IsMerged && (cell.Row != row || cell.Column != col))
             continue;
           cell.IsSelected = true;
           cell.IsOn = true;
@@ -499,8 +511,8 @@ namespace GridLayoutApp
           cell.IsHighlightOverlay = false;
         }
       }
-      SelectedExtent = new System.Drawing.Rectangle(0, 0, 0, 0);
       NotifyPropertyChanged(nameof(SelectedCells));
+      UpdateSelectionExtent();
     }
 
     public void CreateGrid(int rows, int cols)
@@ -514,10 +526,10 @@ namespace GridLayoutApp
         {
           GridCell cell = new GridCell(row, col, 1, 1, this);
           cell.Extent = new System.Drawing.RectangleF(col * colSize, row * rowSize, colSize, rowSize);
-          _gridCells[row,col] = cell;
+          _gridCells[row, col] = cell;
         }
       }
-      _uniqueGridElements = GetUniqueCells();
+      _uniqueGridElements = GetUniqueElements();
 
       NotifyPropertyChanged(nameof(Rows));
       NotifyPropertyChanged(nameof(Columns));
@@ -526,13 +538,20 @@ namespace GridLayoutApp
       NotifyPropertyChanged(nameof(Graticule));
     }
 
-    public void MergeCells(int startRow, int startCol, int rowSpan, int colSpan)
+    public void Merge(int startRow, int startCol, int rowSpan, int colSpan)
     {
       GridCell group = _gridCells[startRow, startCol];
       float percentWidth = 0;
       float percentHeight = 0;
-      float[] columnEdges = GetColumnEdgePositions();
-      float[] rowEdges = GetRowEdgePositions();
+      bool success = false;
+      float[] columnEdges = GetColumnEdgePositions(ref success);
+      //failed to determine position at all column edges
+      if (!success)
+        return;
+      float[] rowEdges = GetRowEdgePositions(ref success);
+      //failed to determine position at all row edges
+      if (!success)
+        return;
       for (int row = startRow; row < startRow + rowSpan; row++)
       {
         percentHeight += (rowEdges[row + 1] - rowEdges[row]);
@@ -546,407 +565,34 @@ namespace GridLayoutApp
       group.ColumnSpan = colSpan;
       group.PercentWidth = percentWidth;
       group.PercentHeight = percentHeight;
-      for (int row = startRow; row < startRow+rowSpan; row++)
+      for (int row = startRow; row < startRow + rowSpan; row++)
       {
-        for (int col = startCol; col < startCol+colSpan; col++)
+        for (int col = startCol; col < startCol + colSpan; col++)
         {
           _gridCells[row, col] = group;
         }
       }
 
-      HashSet<GridCell> rowSet = new HashSet<GridCell>();
-      HashSet<GridCell> colSet = new HashSet<GridCell>();
-      if (group.ColumnSpan == Columns && group.Row == 0 && group.RowSpan > 1)
-      {
-        rowSet.Clear();
-        int newRows = Rows - group.RowSpan + 1;
-        GridCell[,] newGridCells = new GridCell[newRows, Columns];
-        for (int col = 0; col < Columns; col++)
-        {
-          newGridCells[0, col] = group;
-        }
-        for (int row = group.RowSpan; row < Rows; row++)
-        {
-          for (int col = 0; col < Columns; col++)
-          {
-            GridCell cell = _gridCells[row,col];
-            if (!rowSet.Contains(cell))
-            {
-              cell.Row = cell.Row - (group.RowSpan - 1);
-              rowSet.Add(cell);
-            }
-            newGridCells[row - group.RowSpan + 1, col] = cell;
-          }
-        }
-        group.RowSpan = 1;
-        _gridCells = newGridCells;
-      }
-      else if (group.ColumnSpan == Columns && group.Row == Rows - group.RowSpan && group.RowSpan > 1)
-      {
-        int newRows = Rows - group.RowSpan + 1;
-        GridCell[,] newGridCells = new GridCell[newRows, Columns];
-        for (int col = 0; col < Columns; col++)
-        {
-          newGridCells[newRows - 1, col] = group;
-        }
-        for (int row = 0; row < Rows - group.RowSpan; row++)
-        {
-          for (int col = 0; col < Columns; col++)
-          {
-            GridCell cell = _gridCells[row, col];
-            newGridCells[row, col] = cell;
-          }
-        }
-        group.RowSpan = 1;
-        _gridCells = newGridCells;
-      }
-      if (group.RowSpan == Rows && group.Column == 0 && group.ColumnSpan > 1)
-      {
-        colSet.Clear();
-        int newCols = Columns - group.ColumnSpan + 1;
-        GridCell[,] newGridCells = new GridCell[Rows, newCols];
-        for (int row = 0; row < Rows; row++)
-        {
-          newGridCells[row, 0] = group;
-        }
-
-        for (int row = 0; row < Rows; row++)
-        {
-          for (int col = group.ColumnSpan; col < Columns; col++)
-          {
-            GridCell cell = _gridCells[row, col];
-            if (!colSet.Contains(cell))
-            {
-              cell.Column = cell.Column - (group.ColumnSpan - 1);
-              colSet.Add(cell);
-            }
-            newGridCells[row, col - group.ColumnSpan + 1] = cell;
-          }
-        }
-        group.ColumnSpan = 1;
-        _gridCells = newGridCells;
-      }
-      else if (group.RowSpan == Rows && group.Column == Columns - group.ColumnSpan && group.ColumnSpan > 1)
-      {
-        int newCols = Columns - group.ColumnSpan + 1;
-        GridCell[,] newGridCells = new GridCell[Rows, newCols];
-        for (int row = 0; row < Rows; row++)
-        {
-          newGridCells[row, newCols - 1] = group;
-        }
-
-        for (int row = 0; row < Rows; row++)
-        {
-          for (int col = 0; col < Columns - group.ColumnSpan; col++)
-          {
-            GridCell cell = _gridCells[row, col];
-            newGridCells[row, col] = cell;
-          }
-        }
-        group.ColumnSpan = 1;
-        _gridCells = newGridCells;
-      }
-
-      _uniqueGridElements = GetUniqueCells();
-      NotifyPropertyChanged(nameof(Rows));
-      NotifyPropertyChanged(nameof(Columns));
-      NotifyPropertyChanged(nameof(GridElements));
-      NotifyPropertyChanged(nameof(GridCells));
-      NotifyPropertyChanged(nameof(Graticule));
-    }
-
-    /// <summary>
-    /// Edge positions on a scale of 0 to 1 from top to bottom.
-    /// </summary>
-    /// <returns></returns>
-    public float[] GetRowEdgePositions()
-    {
-      List<GridCell>[] cellsOrderedByRow = new List<GridCell>[Rows];
-      for (int i = 0; i < Rows; i++)
-      {
-        System.Drawing.Rectangle rowExtent = new System.Drawing.Rectangle(0, i, Columns, 1);
-        for (int row = 0; row < Rows; row++)
-        {
-          for (int col = 0; col < Columns; col++)
-          {
-            GridCell cell = _gridCells[row, col];
-            if (cell.IsGroup && (cell.Row != row || cell.Column != col))
-              continue;
-
-            if (cell.CellExtent.IntersectsWith(rowExtent))
-            {
-              if (cellsOrderedByRow[i] == null)
-                cellsOrderedByRow[i] = new List<GridCell>();
-              cellsOrderedByRow[i].Add(cell);
-            }
-          }
-        }
-      }
-      float[] rowSizes = new float[Rows];
-      float[] rowEdges = new float[Rows + 1];
-      rowEdges[0] = 0;
-      for (int row = 0; row < Rows; row++)
-      {
-        List<GridCell> intersectingCells = cellsOrderedByRow[row];
-        int topEdge = row;
-        int bottomEdge = row + 1;
-        if (intersectingCells == null)
-        {
-          rowSizes[row] = 0;
-          rowEdges[bottomEdge] = rowEdges[topEdge];
-          continue;
-        }
-        float rowSize = float.MaxValue;
-        foreach (GridCell cell in intersectingCells)
-        {
-          if (cell.RowSpan == 1)
-            rowSize = cell.PercentHeight;
-          else
-            rowSize = Math.Min(rowSize, cell.PercentHeight / cell.RowSpan);
-        }
-        rowSizes[row] = rowSize;
-        rowEdges[bottomEdge] = rowEdges[topEdge] + rowSize;
-      }
-      return rowEdges;
-    }
-
-    /// <summary>
-    /// Edge positions on a scale of 0 to 1 from left to right.
-    /// </summary>
-    /// <returns></returns>
-    public float[] GetColumnEdgePositions()
-    {
-      List<GridCell>[] cellsOrderedByColumn = new List<GridCell>[Columns];
-      for (int i = 0; i < Columns; i++)
-      {
-        System.Drawing.Rectangle columnExtent = new System.Drawing.Rectangle(i, 0, 1, Rows);
-        for (int row = 0; row < Rows; row++)
-        {
-          for (int col = 0; col < Columns; col++)
-          {
-            GridCell cell = _gridCells[row, col];
-            if (cell.IsGroup && (cell.Row != row || cell.Column != col))
-              continue;
-
-            if (cell.CellExtent.IntersectsWith(columnExtent))
-            {
-              if (cellsOrderedByColumn[i] == null)
-                cellsOrderedByColumn[i] = new List<GridCell>();
-              cellsOrderedByColumn[i].Add(cell);
-            }
-          }
-        }
-      }
-      float[] columnSizes = new float[Columns];
-      int[] columnSharedFlags = new int[Columns];//is shared columns
-      float[] columnEdges = new float[Columns + 1];
-      columnEdges[0] = 0;
-      for (int col = 0; col < Columns; col++)
-      {
-        columnEdges[col+1] = float.NaN;
-        columnSizes[col] = float.NaN;
-        columnSharedFlags[col] = 0;
-      }
-      for (int col = 0; col < Columns; col++)
-      {
-        if (!float.IsNaN(columnSizes[col]))
-          continue;
-
-        List<GridCell> intersectingCells = cellsOrderedByColumn[col];
-        int leftEdge = col;
-        int rightEdge = col + 1;
-        if (intersectingCells == null || intersectingCells.Count == 0)
-        {
-          columnSizes[col] = 0;
-          columnEdges[rightEdge] = columnEdges[leftEdge];
-          continue;
-        }
-
-        bool isUniformSpan = true;
-        int minSpanColId = 0;
-        float colSize = float.NaN;
-        int id = -1;
-        System.Drawing.Rectangle overlappedExtent = intersectingCells[0].CellExtent;
-        overlappedExtent = new System.Drawing.Rectangle(overlappedExtent.X, 0, overlappedExtent.Width, 1);
-        foreach (GridCell cell in intersectingCells)
-        {
-          id++;
-          columnEdges[cell.Column] = cell.Extent.Left;
-          columnEdges[cell.Column + cell.ColumnSpan] = cell.Extent.Right;
-          if (isUniformSpan && (cell.Column != intersectingCells[0].Column || cell.ColumnSpan != intersectingCells[0].ColumnSpan))
-            isUniformSpan = false;
-          overlappedExtent.Intersect(new System.Drawing.Rectangle(cell.CellExtent.X, 0, cell.CellExtent.Width, 1));
-          if (cell.ColumnSpan == 1)
-          {
-            colSize = cell.PercentWidth;
-            break;
-          }
-          if(cell.ColumnSpan < intersectingCells[minSpanColId].ColumnSpan)
-          {
-            minSpanColId = id;
-          }
-        }
-
-        columnSizes[col] = colSize;
-        if(float.IsNaN(colSize))
-        {
-          if (isUniformSpan)
-          {
-            columnSizes[col] = intersectingCells[0].PercentWidth / intersectingCells[0].ColumnSpan;
-          }
-          else
-          {
-            bool overlapOtherCells = false;
-            GridCell minSpanCell = intersectingCells[minSpanColId];
-            System.Drawing.Rectangle minSpanCellExtent = new System.Drawing.Rectangle(minSpanCell.Column, 0, minSpanCell.ColumnSpan, 1);
-            foreach (GridCell cell in intersectingCells)
-            {
-              if(!(new System.Drawing.Rectangle(cell.Column,0,cell.ColumnSpan,1)).Contains(minSpanCellExtent))
-              {
-                overlapOtherCells = true;
-                break;
-              }
-            }
-
-            if (!overlapOtherCells)
-            {
-              colSize = minSpanCell.PercentWidth / minSpanCell.ColumnSpan;
-              columnSizes[col] = colSize;
-              for (int colToSet = minSpanCell.Column; colToSet < minSpanCell.Column + minSpanCell.ColumnSpan; colToSet++)
-              {
-                columnSizes[colToSet] = colSize;
-              }
-            }
-          }
-
-          if(float.IsNaN(columnSizes[col]) && overlappedExtent.Width > 0)
-          {
-            for (int colToSet = overlappedExtent.X; colToSet < overlappedExtent.X + overlappedExtent.Width; colToSet++)
-            {
-              columnSharedFlags[colToSet] = 1;
-            }
-          }
-        }
-      }
-
-
-      for (int col = 0; col < Columns; col++)
-      {
-        if (!float.IsNaN(columnSizes[col]))
-        {
-          continue;
-        }
-        List<GridCell> intersectingCells = cellsOrderedByColumn[col];
-        foreach (GridCell cell in intersectingCells)
-        {
-          if (cell.ColumnSpan == 1 && !float.IsNaN(columnSizes[cell.Column]))
-          {
-            columnSizes[col] = cell.PercentWidth;
-            break;
-          }
-          float colSize = cell.PercentWidth;
-          bool isSet = true;
-          for (int colToGet = cell.Column; colToGet < cell.Column + cell.ColumnSpan; colToGet++)
-          {
-            if (colToGet == col)
-              continue;
-            if (float.IsNaN(columnSizes[colToGet]))
-            {
-              isSet = false;
-              break;
-            }
-            colSize -= columnSizes[colToGet];
-          }
-          if (isSet)
-            columnSizes[col] = colSize;
-        }
-      }
-
-      for (int col = 0; col < Columns; col++)
-      {
-        int leftEdge = col;
-        int rightEdge = col + 1;
-        if (float.IsNaN(columnEdges[leftEdge]) && float.IsNaN(columnSizes[col]))
-          continue;
-        columnEdges[rightEdge] = columnEdges[leftEdge] + columnSizes[col];
-      }
-
-      for (int col = 0; col < Columns; col++)
-      {
-        if (!float.IsNaN(columnSizes[col]))
-          continue;
-        int startCol = col;
-        int endCol = col;
-        while(endCol < Columns - 1)
-        {
-          if (!float.IsNaN(columnSizes[endCol]))
-          {
-            endCol--;
-            break;
-          }
-          endCol++;
-        }
-        int leftEdge = col;
-        int rightEdge = endCol + 1;
-        if (float.IsNaN(columnEdges[leftEdge]) || float.IsNaN(columnSizes[rightEdge]))
-          continue;
-        float colSize = (columnEdges[rightEdge] - columnEdges[leftEdge]) / (endCol - startCol + 1);
-        while(startCol <= endCol)
-        {
-          columnSizes[startCol] = colSize;
-          startCol++;
-        }
-      }
-
-      for (int col = 0; col < Columns; col++)
-      {
-        List<GridCell> intersectingCells = cellsOrderedByColumn[col];
-        int leftEdge = col;
-        int rightEdge = col + 1;
-        if (float.IsNaN(columnEdges[leftEdge]) || float.IsNaN(columnSizes[col]))
-          continue;
-        columnEdges[rightEdge] = columnEdges[leftEdge] + columnSizes[col];
-      }
-      return columnEdges;
-    }
-
-    private void SetCell(GridCell[,] gridCells, GridCell cell)
-    {
-      for (int row = cell.Row; row < cell.Row + cell.RowSpan; row++)
-      {
-        for (int col = cell.Column; col < cell.Column + cell.ColumnSpan; col++)
-        {
-          gridCells[row, col] = cell;
-        }
-      }
-    }
-
-    private List<GridCell> GetUniqueCells()
-    {
-      List<GridCell> cells = new List<GridCell>();
-      HashSet<GridCell> uniqueSet = new HashSet<GridCell>();
-      foreach(GridCell cell in _gridCells)
-      {
-        if (!uniqueSet.Contains(cell))
-        {
-          cell.ApplyButtonStyle();
-          cells.Add(cell);
-          uniqueSet.Add(cell);
-        }
-      }
-      return cells;
+      ClearSelection();
+      UpdateCells();
+      CondenseRowsAndColumns();
     }
 
     public void SliceHorizontally(GridCell targetCell, int numofparts)
     {
-      if (double.IsNaN(ActualWidth) || double.IsNaN(ActualHeight)
-        || float.IsNaN(targetCell.PercentWidth) || float.IsNaN(targetCell.PercentHeight)
+      if (float.IsNaN(targetCell.PercentWidth) || float.IsNaN(targetCell.PercentHeight)
         || targetCell.PercentWidth == 0 || targetCell.PercentHeight == 0)
         return;
 
       float fraction = 1.0f / numofparts;
       List<GridCell> splitCells = new List<GridCell>();
-      float[] columnEdges = GetColumnEdgePositions();
+      bool success = false;
+      float[] columnEdges = GetColumnEdgePositions(ref success);
+      //failed to determine position at all row edges
+      if (!success)
+      {
+        return;
+      }
       int startEdge = targetCell.Column;
       int endEdge = targetCell.Column + targetCell.ColumnSpan;
       float columnWidth = columnEdges[endEdge] - columnEdges[startEdge];
@@ -954,7 +600,7 @@ namespace GridLayoutApp
       int newColumns = numofparts - 1;
       bool[] snappedEdges = new bool[columnEdges.Length];
       bool[] snappedSlices = new bool[numofparts - 1];
-      for (int i = 0; i < numofparts-1; i++)
+      for (int i = 0; i < numofparts - 1; i++)
       {
         snappedSlices[i] = false;
       }
@@ -964,7 +610,7 @@ namespace GridLayoutApp
         snappedEdges[i] = false;
         if (i < startEdge || i > endEdge)
           continue;
-        if(i == startEdge || i == endEdge)
+        if (i == startEdge || i == endEdge)
         {
           snappedEdges[i] = true;
           continue;
@@ -972,7 +618,7 @@ namespace GridLayoutApp
         for (int j = 0; j < numofparts - 1; j++)
         {
           float slicePosition = columnEdges[startEdge] + columnWidth * (fraction * (j + 1));
-          if(Math.Abs(slicePosition-columnEdges[i]) <= EdgeSnapEpsilon)
+          if (Math.Abs(slicePosition - columnEdges[i]) <= EdgeSnapEpsilon)
           {
             snappedEdges[i] = true;
             snappedSlices[j] = true;
@@ -1005,7 +651,7 @@ namespace GridLayoutApp
         splitCells.Add(splitCell);
       }
 
-      List<GridCell> uniqueCells = GetUniqueCells();
+      List<GridCell> uniqueCells = GetUniqueElements();
       Dictionary<GridCell, int[]> incrementCounters = new Dictionary<GridCell, int[]>();
 
       for (int i = 0; i < numofparts - 1; i++)
@@ -1041,7 +687,7 @@ namespace GridLayoutApp
         }
       }
 
-      foreach(KeyValuePair<GridCell, int[]> pair in incrementCounters)
+      foreach (KeyValuePair<GridCell, int[]> pair in incrementCounters)
       {
         pair.Key.Column += pair.Value[0];
         pair.Key.ColumnSpan += pair.Value[1];
@@ -1067,24 +713,24 @@ namespace GridLayoutApp
       }
 
       _gridCells = newGridCells;
-      _uniqueGridElements = GetUniqueCells();
-      NotifyPropertyChanged(nameof(Columns));
-      NotifyPropertyChanged(nameof(GridElements));
-      NotifyPropertyChanged(nameof(GridCells));
-      NotifyPropertyChanged(nameof(Graticule));
+      UpdateCells();
+      CondenseRowsAndColumns();
     }
 
     public void SliceVertically(GridCell targetCell, int numofparts)
     {
-      if (double.IsNaN(ActualHeight) || double.IsNaN(ActualHeight)
-        || float.IsNaN(targetCell.PercentHeight) || float.IsNaN(targetCell.PercentHeight)
+      if (float.IsNaN(targetCell.PercentHeight) || float.IsNaN(targetCell.PercentHeight)
         || targetCell.PercentHeight == 0 || targetCell.PercentHeight == 0)
         return;
 
       float fraction = 1.0f / numofparts;
       List<GridCell> splitCells = new List<GridCell>();
 
-      float[] rowEdges = GetRowEdgePositions();
+      bool success = false;
+      float[] rowEdges = GetRowEdgePositions(ref success);
+      //failed to determine position at all row edges
+      if (!success)
+        return;
       int startEdge = targetCell.Row;
       int endEdge = targetCell.Row + targetCell.RowSpan;
       float rowHeight = rowEdges[endEdge] - rowEdges[startEdge];
@@ -1143,7 +789,7 @@ namespace GridLayoutApp
         splitCells.Add(splitCell);
       }
 
-      List<GridCell> uniqueCells = GetUniqueCells();
+      List<GridCell> uniqueCells = GetUniqueElements();
       Dictionary<GridCell, int[]> incrementCounters = new Dictionary<GridCell, int[]>();
 
       for (int i = 0; i < numofparts - 1; i++)
@@ -1206,26 +852,648 @@ namespace GridLayoutApp
       }
 
       _gridCells = newGridCells;
-      _uniqueGridElements = GetUniqueCells();
+      UpdateCells();
+      CondenseRowsAndColumns();
+    }
+
+    /// <summary>
+    /// Edge positions on a scale of 0 to 1 from top to bottom.
+    /// </summary>
+    /// <returns></returns>
+    public float[] GetRowEdgePositions(ref bool success)
+    {
+      List<GridCell>[] cellsOrderedByRow = GetCellsOrderedByRow();
+
+      float[] rowHeights = new float[Rows];
+      float[] rowEdges = new float[Rows + 1];
+      rowEdges[0] = 0;
+      for (int row = 0; row < Rows; row++)
+      {
+        rowEdges[row + 1] = float.NaN;
+        rowHeights[row] = float.NaN;
+      }
+
+      //Pass 1:
+      //(1) For a single-row element, the row height is determined by the element height;
+      //(2) For a contiguous group of rows in which all elements are of equal row span, the row height are determined by dividing the element height by the row span;
+      //(3) For a contiguous group of rows in which the rows of one element are shared by all the other elements, the heights of these overlapping rows are determined by dividing the height by the row span of that element;
+      //(4) The top/bottom edge of a element determines the position of the corresponding row edge, e.g., the edge position of row 0 is the same as the top edge of an element whose starts at row 0.
+      for (int row = 0; row < Rows; row++)
+      {
+        if (!float.IsNaN(rowHeights[row]))
+          continue;
+
+        List<GridCell> intersectingCells = cellsOrderedByRow[row];
+        int topEdge = row;
+        int bottomEdge = row + 1;
+        if (intersectingCells == null || intersectingCells.Count == 0)
+        {
+          rowHeights[row] = 0;
+          rowEdges[bottomEdge] = rowEdges[topEdge];
+          continue;
+        }
+
+        bool isUniformSpan = true;
+        int minSpanRowId = 0;
+        float rowSize = float.NaN;
+        int id = -1;
+        //System.Drawing.Rectangle overlappedExtent = intersectingCells[0].CellExtent;
+        //overlappedExtent = new System.Drawing.Rectangle(overlappedExtent.X, 0, overlappedExtent.Height, 1);
+        foreach (GridCell cell in intersectingCells)
+        {
+          id++;
+          rowEdges[cell.Row] = cell.Extent.Top;
+          rowEdges[cell.Row + cell.RowSpan] = cell.Extent.Bottom;
+          if (isUniformSpan && (cell.Row != intersectingCells[0].Row || cell.RowSpan != intersectingCells[0].RowSpan))
+            isUniformSpan = false;
+          //overlappedExtent.Intersect(new System.Drawing.Rectangle(cell.CellExtent.X, 0, cell.CellExtent.Height, 1));
+          if (cell.RowSpan == 1)
+          {
+            rowSize = cell.PercentHeight;
+            break;
+          }
+          if (cell.RowSpan < intersectingCells[minSpanRowId].RowSpan)
+          {
+            minSpanRowId = id;
+          }
+        }
+
+        rowHeights[row] = rowSize;
+        if (float.IsNaN(rowSize))
+        {
+          if (isUniformSpan)
+          {
+            rowHeights[row] = intersectingCells[0].PercentHeight / intersectingCells[0].RowSpan;
+          }
+          else
+          {
+            bool hasOverlappingExtent = true;
+            GridCell minSpanCell = intersectingCells[minSpanRowId];
+            System.Drawing.Rectangle minSpanCellExtent = new System.Drawing.Rectangle(0, minSpanCell.Row, 1, minSpanCell.RowSpan);
+            foreach (GridCell cell in intersectingCells)
+            {
+              if (!(new System.Drawing.Rectangle(0, cell.Row, 1, cell.RowSpan)).Contains(minSpanCellExtent))
+              {
+                hasOverlappingExtent = false;
+                break;
+              }
+            }
+
+            if (hasOverlappingExtent)
+            {
+              rowSize = minSpanCell.PercentHeight / minSpanCell.RowSpan;
+              rowHeights[row] = rowSize;
+              for (int rowToSet = minSpanCell.Row; rowToSet < minSpanCell.Row + minSpanCell.RowSpan; rowToSet++)
+              {
+                rowHeights[rowToSet] = rowSize;
+              }
+            }
+          }
+        }
+      }
+
+      //Pass 2:
+      //(1) For a multi-row element, if the row heights of all but one row are knowned, the unknown row height is determined by subtracting the summed height of the knowned rows from the element height;
+      for (int row = 0; row < Rows; row++)
+      {
+        if (!float.IsNaN(rowHeights[row]))
+        {
+          continue;
+        }
+        List<GridCell> intersectingCells = cellsOrderedByRow[row];
+        foreach (GridCell cell in intersectingCells)
+        {
+          if (cell.RowSpan == 1 && !float.IsNaN(rowHeights[cell.Row]))
+          {
+            rowHeights[row] = cell.PercentHeight;
+            break;
+          }
+          float rowSize = cell.PercentHeight;
+          bool isSet = true;
+          for (int rowToGet = cell.Row; rowToGet < cell.Row + cell.RowSpan; rowToGet++)
+          {
+            if (rowToGet == row)
+              continue;
+            if (float.IsNaN(rowHeights[rowToGet]))
+            {
+              isSet = false;
+              break;
+            }
+            rowSize -= rowHeights[rowToGet];
+          }
+          if (isSet)
+            rowHeights[row] = rowSize;
+        }
+      }
+
+      //Pass 3:
+      //(1) First pass to determine positions at edges where both the positions of the top neighboring edge and the row height are known.
+      for (int row = 0; row < Rows; row++)
+      {
+        int topEdge = row;
+        int bottomEdge = row + 1;
+        if (float.IsNaN(rowEdges[topEdge]) || float.IsNaN(rowHeights[row]))
+          continue;
+        rowEdges[bottomEdge] = rowEdges[topEdge] + rowHeights[row];
+      }
+
+      //Pass 4:
+      //(1) For a contiguous group of rows shared by all overlapping elements across the rows, the total height of these rows are is equal to the difference of the bottom edge and top edge positions (if both are known), and the total height is evenly distributed over the rows to determine the row height;
+      for (int row = 0; row < Rows; row++)
+      {
+        if (!float.IsNaN(rowHeights[row]))
+          continue;
+        if (float.IsNaN(rowEdges[row]))
+          continue;
+        int startRow = row;
+        int endRow = row;
+        while (endRow < Rows - 1)
+        {
+          if (!float.IsNaN(rowHeights[endRow]))
+          {
+            endRow--;
+            break;
+          }
+          endRow++;
+        }
+        int topEdge = row;
+        int bottomEdge = endRow + 1;
+        while (bottomEdge > topEdge)
+        {
+          if (float.IsNaN(rowEdges[bottomEdge]))
+            bottomEdge--;
+          else
+            break;
+        }
+        if (float.IsNaN(rowEdges[topEdge]) || float.IsNaN(rowEdges[bottomEdge]))
+          continue;
+        float rowSize = (rowEdges[bottomEdge] - rowEdges[topEdge]) / (endRow - startRow + 1);
+        while (startRow <= endRow)
+        {
+          rowHeights[startRow] = rowSize;
+          startRow++;
+        }
+        for (int rowToSet = 0; rowToSet < Rows; rowToSet++)
+        {
+          if (!float.IsNaN(rowEdges[rowToSet + 1]))
+            continue;
+          if (float.IsNaN(rowEdges[rowToSet]) || float.IsNaN(rowHeights[rowToSet]))
+            continue;
+          rowEdges[rowToSet + 1] = rowEdges[rowToSet] + rowHeights[rowToSet];
+        }
+      }
+
+      //Pass 5:
+      //(1) Second pass to determine positions at unkown edges where both the positions of the top neighboring edge and the row height are known.
+      for (int row = 0; row < Rows; row++)
+      {
+        if (!float.IsNaN(rowEdges[row + 1]))
+          continue;
+        int topEdge = row;
+        int bottomEdge = row + 1;
+        if (float.IsNaN(rowEdges[topEdge]) || float.IsNaN(rowHeights[row]))
+          continue;
+        rowEdges[bottomEdge] = rowEdges[topEdge] + rowHeights[row];
+      }
+
+      //Return true only if all edges are known.
+      success = true;
+      for (int row = 0; row < Rows; row++)
+      {
+        if (float.IsNaN(rowEdges[row + 1]) || float.IsNaN(rowHeights[row]))
+          success = false;
+      }
+
+      return rowEdges;
+    }
+
+    /// <summary>
+    /// Determin edge positions on a scale of 0 to 1 from left to right.
+    /// </summary>
+    /// <returns></returns>
+    public float[] GetColumnEdgePositions(ref bool success)
+    {
+      List<GridCell>[] cellsOrderedByColumn = GetCellsOrderedByColumn();
+
+      float[] columnWidths = new float[Columns];
+      float[] columnEdges = new float[Columns + 1];
+      columnEdges[0] = 0;
+      for (int col = 0; col < Columns; col++)
+      {
+        columnEdges[col + 1] = float.NaN;
+        columnWidths[col] = float.NaN;
+      }
+
+      //Pass 1:
+      //(1) For a single-column element, the column width is determined by the element width;
+      //(2) For a contiguous group of columns in which all elements are of equal column span, the column width are determined by dividing the element width by the column span;
+      //(3) For a contiguous group of columns in which the columns of one element are shared by all the other elements, the widths of these overlapping columns are determined by dividing the width by the column span of that element;
+      //(4) The left/right edge of a element determines the position of the corresponding column edge, e.g., the edge position of column 0 is the same as the left edge of an element whose starts at column 0.
+      for (int col = 0; col < Columns; col++)
+      {
+        if (!float.IsNaN(columnWidths[col]))
+          continue;
+
+        List<GridCell> intersectingCells = cellsOrderedByColumn[col];
+        int leftEdge = col;
+        int rightEdge = col + 1;
+        if (intersectingCells == null || intersectingCells.Count == 0)
+        {
+          columnWidths[col] = 0;
+          columnEdges[rightEdge] = columnEdges[leftEdge];
+          continue;
+        }
+
+        bool isUniformSpan = true;
+        int minSpanColId = 0;
+        float colSize = float.NaN;
+        int id = -1;
+        //System.Drawing.Rectangle overlappedExtent = intersectingCells[0].CellExtent;
+        //overlappedExtent = new System.Drawing.Rectangle(overlappedExtent.X, 0, overlappedExtent.Width, 1);
+        foreach (GridCell cell in intersectingCells)
+        {
+          id++;
+          columnEdges[cell.Column] = cell.Extent.Left;
+          columnEdges[cell.Column + cell.ColumnSpan] = cell.Extent.Right;
+          if (isUniformSpan && (cell.Column != intersectingCells[0].Column || cell.ColumnSpan != intersectingCells[0].ColumnSpan))
+            isUniformSpan = false;
+          //overlappedExtent.Intersect(new System.Drawing.Rectangle(cell.CellExtent.X, 0, cell.CellExtent.Width, 1));
+          if (cell.ColumnSpan == 1)
+          {
+            colSize = cell.PercentWidth;
+            break;
+          }
+          if (cell.ColumnSpan < intersectingCells[minSpanColId].ColumnSpan)
+          {
+            minSpanColId = id;
+          }
+        }
+
+        columnWidths[col] = colSize;
+        if (float.IsNaN(colSize))
+        {
+          if (isUniformSpan)
+          {
+            columnWidths[col] = intersectingCells[0].PercentWidth / intersectingCells[0].ColumnSpan;
+          }
+          else
+          {
+            bool hasOverlappingExtent = true;
+            GridCell minSpanCell = intersectingCells[minSpanColId];
+            System.Drawing.Rectangle minSpanCellExtent = new System.Drawing.Rectangle(minSpanCell.Column, 0, minSpanCell.ColumnSpan, 1);
+            foreach (GridCell cell in intersectingCells)
+            {
+              if (!(new System.Drawing.Rectangle(cell.Column, 0, cell.ColumnSpan, 1)).Contains(minSpanCellExtent))
+              {
+                hasOverlappingExtent = false;
+                break;
+              }
+            }
+
+            if (hasOverlappingExtent)
+            {
+              colSize = minSpanCell.PercentWidth / minSpanCell.ColumnSpan;
+              columnWidths[col] = colSize;
+              for (int colToSet = minSpanCell.Column; colToSet < minSpanCell.Column + minSpanCell.ColumnSpan; colToSet++)
+              {
+                columnWidths[colToSet] = colSize;
+              }
+            }
+          }
+        }
+      }
+
+      //Pass 2:
+      //(1) For a multi-column element, if the column widths of all but one column are knowned, the unknown column width is determined by subtracting the summed width of the knowned columns from the element width;
+      for (int col = 0; col < Columns; col++)
+      {
+        if (!float.IsNaN(columnWidths[col]))
+        {
+          continue;
+        }
+        List<GridCell> intersectingCells = cellsOrderedByColumn[col];
+        foreach (GridCell cell in intersectingCells)
+        {
+          if (cell.ColumnSpan == 1 && !float.IsNaN(columnWidths[cell.Column]))
+          {
+            columnWidths[col] = cell.PercentWidth;
+            break;
+          }
+          float colSize = cell.PercentWidth;
+          bool isSet = true;
+          for (int colToGet = cell.Column; colToGet < cell.Column + cell.ColumnSpan; colToGet++)
+          {
+            if (colToGet == col)
+              continue;
+            if (float.IsNaN(columnWidths[colToGet]))
+            {
+              isSet = false;
+              break;
+            }
+            colSize -= columnWidths[colToGet];
+          }
+          if (isSet)
+            columnWidths[col] = colSize;
+        }
+      }
+
+      //Pass 3:
+      //(1) First pass to determine positions at edges where both the positions of the left neighboring edge and the column width are known.
+      for (int col = 0; col < Columns; col++)
+      {
+        int leftEdge = col;
+        int rightEdge = col + 1;
+        if (float.IsNaN(columnEdges[leftEdge]) || float.IsNaN(columnWidths[col]))
+          continue;
+        columnEdges[rightEdge] = columnEdges[leftEdge] + columnWidths[col];
+      }
+
+      //Pass 4:
+      //(1) For a contiguous group of columns shared by all overlapping elements across the rows, the total width of these columns are is equal to the difference of the right edge and left edge positions (if both are known), and the total width is evenly distributed over the columns to determine the column width;
+      for (int col = 0; col < Columns; col++)
+      {
+        if (!float.IsNaN(columnWidths[col]))
+          continue;
+        if (float.IsNaN(columnEdges[col]))
+          continue;
+        int startCol = col;
+        int endCol = col;
+        while (endCol < Columns - 1)
+        {
+          if (!float.IsNaN(columnWidths[endCol]))
+          {
+            endCol--;
+            break;
+          }
+          endCol++;
+        }
+        int leftEdge = col;
+        int rightEdge = endCol + 1;
+        while (rightEdge > leftEdge)
+        {
+          if (float.IsNaN(columnEdges[rightEdge]))
+            rightEdge--;
+          else
+            break;
+        }
+        if (float.IsNaN(columnEdges[leftEdge]) || float.IsNaN(columnEdges[rightEdge]))
+          continue;
+        float colSize = (columnEdges[rightEdge] - columnEdges[leftEdge]) / (endCol - startCol + 1);
+        while (startCol <= endCol)
+        {
+          columnWidths[startCol] = colSize;
+          startCol++;
+        }
+        for (int colToSet = 0; colToSet < Columns; colToSet++)
+        {
+          if (!float.IsNaN(columnEdges[colToSet + 1]))
+            continue;
+          if (float.IsNaN(columnEdges[colToSet]) || float.IsNaN(columnWidths[colToSet]))
+            continue;
+          columnEdges[colToSet + 1] = columnEdges[colToSet] + columnWidths[colToSet];
+        }
+      }
+
+      //Pass 5:
+      //(1) Second pass to determine positions at unkown edges where both the positions of the left neighboring edge and the column width are known.
+      for (int col = 0; col < Columns; col++)
+      {
+        if (!float.IsNaN(columnEdges[col + 1]))
+          continue;
+        int leftEdge = col;
+        int rightEdge = col + 1;
+        if (float.IsNaN(columnEdges[leftEdge]) || float.IsNaN(columnWidths[col]))
+          continue;
+        columnEdges[rightEdge] = columnEdges[leftEdge] + columnWidths[col];
+      }
+
+      //Return true only if all edges are known.
+      success = true;
+      for (int col = 0; col < Columns; col++)
+      {
+        if (float.IsNaN(columnEdges[col + 1]) || float.IsNaN(columnWidths[col]))
+          success = false;
+      }
+
+      return columnEdges;
+    }
+    #endregion
+
+    #region Private methods
+    private void UpdateCells()
+    {
+      _uniqueGridElements = GetUniqueElements();
       NotifyPropertyChanged(nameof(Rows));
+      NotifyPropertyChanged(nameof(Columns));
       NotifyPropertyChanged(nameof(GridElements));
       NotifyPropertyChanged(nameof(GridCells));
       NotifyPropertyChanged(nameof(Graticule));
     }
 
-    #region Commands
-
-    private List<GridCell> GetActiveCells(GridCell currentCell)
+    private void UpdateSelectionExtent()
     {
-      List<GridCell> cells = SelectedCells;
-      if (!(SelectedCells?.Count > 0))
+      if (_selectedCells?.Count > 0)
       {
-        cells = new List<GridCell>();
-        if (currentCell != null)
-          cells.Add(currentCell);
+        System.Drawing.Rectangle extent = _selectedCells[0].CellExtent;
+        for (int i = 1; i < _selectedCells.Count; i++)
+        {
+          extent = System.Drawing.Rectangle.Union(extent, _selectedCells[i].CellExtent);
+        }
+        _selectedExtent = extent;
+      }
+      else
+      {
+        _selectedExtent = new System.Drawing.Rectangle(0, 0, 0, 0);
+      }
+      NotifyPropertyChanged(nameof(SelectedExtent));
+    }
+
+    /// <summary>
+    /// Combine shared rows/columns into a single row/column
+    /// </summary>
+    private bool ReclaimRowsAndColumns()
+    {
+      Tuple<int, int> colsToShrink = null;
+      Tuple<int, int> rowsToShrink = null;
+      List<GridCell>[] cellsOrderedByColumn = GetCellsOrderedByColumn();
+      List<GridCell>[] cellsOrderedByRow = GetCellsOrderedByRow();
+      List<GridCell> intersectingCells = null;
+      for (int i = 0; i < cellsOrderedByColumn.Length; i++)
+      {
+        intersectingCells = cellsOrderedByColumn[i];
+        if (intersectingCells == null || intersectingCells.Count == 0)
+          continue;
+        System.Drawing.Rectangle overlappedExtent = intersectingCells[0].CellExtent;
+        overlappedExtent = new System.Drawing.Rectangle(overlappedExtent.X, 0, overlappedExtent.Width, 1);
+        for (int j = 0; j < intersectingCells.Count; j++)
+        {
+          overlappedExtent.Intersect(new System.Drawing.Rectangle(intersectingCells[j].CellExtent.X, 0, intersectingCells[j].CellExtent.Width, 1));
+        }
+        if (overlappedExtent.Width > 1)
+        {
+          colsToShrink = new Tuple<int, int>(overlappedExtent.X, overlappedExtent.Width);
+          break;
+        }
+      }
+
+      if (colsToShrink != null && colsToShrink.Item2 > 1)
+      {
+        intersectingCells = cellsOrderedByColumn[colsToShrink.Item1];
+        int spanToReduce = colsToShrink.Item2 - 1;
+        int newCols = Columns - spanToReduce;
+        GridCell[,] newGridCells = new GridCell[Rows, newCols];
+        foreach (GridCell cell in intersectingCells)
+        {
+          cell.ColumnSpan -= spanToReduce;
+        }
+        foreach (GridCell cell in _uniqueGridElements)
+        {
+          if (cell.Column != colsToShrink.Item1 && cell.Column >= (colsToShrink.Item1 + colsToShrink.Item2))
+            cell.Column = cell.Column - spanToReduce;
+          SetCell(newGridCells, cell);
+        }
+        _gridCells = newGridCells;
+        UpdateCells();
+        return true;
+      }
+
+      for (int i = 0; i < cellsOrderedByRow.Length; i++)
+      {
+        intersectingCells = cellsOrderedByRow[i];
+        if (intersectingCells == null || intersectingCells.Count == 0)
+          continue;
+        System.Drawing.Rectangle overlappedExtent = intersectingCells[0].CellExtent;
+        overlappedExtent = new System.Drawing.Rectangle(0, overlappedExtent.Y, 1, overlappedExtent.Height);
+        for (int j = 0; j < intersectingCells.Count; j++)
+        {
+          overlappedExtent.Intersect(new System.Drawing.Rectangle(0, intersectingCells[j].CellExtent.Y, 1, intersectingCells[j].CellExtent.Height));
+        }
+        if (overlappedExtent.Height > 1)
+        {
+          rowsToShrink = new Tuple<int, int>(overlappedExtent.Y, overlappedExtent.Height);
+          break;
+        }
+      }
+
+      if (rowsToShrink != null && rowsToShrink.Item2 > 1)
+      {
+        intersectingCells = cellsOrderedByRow[rowsToShrink.Item1];
+        int spanToReduce = rowsToShrink.Item2 - 1;
+        int newRows = Rows - spanToReduce;
+        GridCell[,] newGridCells = new GridCell[newRows, Columns];
+        foreach (GridCell cell in intersectingCells)
+        {
+          cell.RowSpan -= spanToReduce;
+        }
+        foreach (GridCell cell in _uniqueGridElements)
+        {
+          if (cell.Row != rowsToShrink.Item1 && cell.Row >= (rowsToShrink.Item1 + rowsToShrink.Item2))
+            cell.Row = cell.Row - spanToReduce;
+          SetCell(newGridCells, cell);
+        }
+        _gridCells = newGridCells;
+        UpdateCells();
+      }
+
+      return false;
+    }
+
+    /// <summary>
+    /// Combine shared rows/columns into a single row/column
+    /// </summary>
+    private void CondenseRowsAndColumns()
+    {
+      while (true)
+      {
+        if (!ReclaimRowsAndColumns())
+          break;
+      }
+    }
+
+    private List<GridCell>[] GetCellsOrderedByRow()
+    {
+      List<GridCell>[] cellsOrderedByRow = new List<GridCell>[Rows];
+      for (int i = 0; i < Rows; i++)
+      {
+        System.Drawing.Rectangle rowExtent = new System.Drawing.Rectangle(0, i, Columns, 1);
+        for (int row = 0; row < Rows; row++)
+        {
+          for (int col = 0; col < Columns; col++)
+          {
+            GridCell cell = _gridCells[row, col];
+            if (cell.IsMerged && (cell.Row != row || cell.Column != col))
+              continue;
+
+            if (cell.CellExtent.IntersectsWith(rowExtent))
+            {
+              if (cellsOrderedByRow[i] == null)
+                cellsOrderedByRow[i] = new List<GridCell>();
+              cellsOrderedByRow[i].Add(cell);
+            }
+          }
+        }
+      }
+      return cellsOrderedByRow;
+    }
+
+    private List<GridCell>[] GetCellsOrderedByColumn()
+    {
+      List<GridCell>[] cellsOrderedByColumn = new List<GridCell>[Columns];
+      for (int i = 0; i < Columns; i++)
+      {
+        System.Drawing.Rectangle columnExtent = new System.Drawing.Rectangle(i, 0, 1, Rows);
+        for (int row = 0; row < Rows; row++)
+        {
+          for (int col = 0; col < Columns; col++)
+          {
+            GridCell cell = _gridCells[row, col];
+            if (cell.IsMerged && (cell.Row != row || cell.Column != col))
+              continue;
+
+            if (cell.CellExtent.IntersectsWith(columnExtent))
+            {
+              if (cellsOrderedByColumn[i] == null)
+                cellsOrderedByColumn[i] = new List<GridCell>();
+              cellsOrderedByColumn[i].Add(cell);
+            }
+          }
+        }
+      }
+      return cellsOrderedByColumn;
+    }
+
+    private void SetCell(GridCell[,] gridCells, GridCell cell)
+    {
+      for (int row = cell.Row; row < cell.Row + cell.RowSpan; row++)
+      {
+        for (int col = cell.Column; col < cell.Column + cell.ColumnSpan; col++)
+        {
+          gridCells[row, col] = cell;
+        }
+      }
+    }
+
+    private List<GridCell> GetUniqueElements()
+    {
+      List<GridCell> cells = new List<GridCell>();
+      HashSet<GridCell> uniqueSet = new HashSet<GridCell>();
+      foreach (GridCell cell in _gridCells)
+      {
+        if (!uniqueSet.Contains(cell))
+        {
+          cell.ApplyButtonStyle();
+          cells.Add(cell);
+          uniqueSet.Add(cell);
+        }
       }
       return cells;
     }
+
+
+    #endregion
+
+    #region Commands
+
     #region Merge
     private ICommand _mergeCommand = null;
     public ICommand MergeCommand
@@ -1245,10 +1513,9 @@ namespace GridLayoutApp
 
     public void Merge(object param)
     {
-      MergeCells(SelectedExtent.Y, SelectedExtent.X, SelectedExtent.Height, SelectedExtent.Width);
-      ClearSelection();
-      NotifyPropertyChanged(nameof(GridCells));
+      Merge(SelectedExtent.Y, SelectedExtent.X, SelectedExtent.Height, SelectedExtent.Width);
     }
+
     #endregion
 
     #region Clear
@@ -1273,8 +1540,7 @@ namespace GridLayoutApp
 
     public void Clear(object param)
     {
-      List<GridCell> cells = GetActiveCells(param as GridCell);
-      foreach (GridCell cell in cells)
+      foreach (GridCell cell in SelectedCells)
       {
         cell.Clear();
       }
@@ -1315,8 +1581,7 @@ namespace GridLayoutApp
         bmp.BeginInit();
         bmp.UriSource = new Uri(filePath);
         bmp.EndInit();
-        List<GridCell> cells = GetActiveCells(param as GridCell);
-        foreach (GridCell cell in cells)
+        foreach (GridCell cell in SelectedCells)
         {
           cell.Image.Source = bmp;
           cell.Image.Stretch = Stretch.Fill;
@@ -1351,9 +1616,8 @@ namespace GridLayoutApp
       ColorDialog colorDialog = new ColorDialog();
       if (colorDialog.ShowDialog() == DialogResult.OK)
       {
-        List<GridCell> cells = GetActiveCells(param as GridCell);
         Color color = Color.FromRgb(colorDialog.Color.R, colorDialog.Color.G, colorDialog.Color.B);
-        foreach (GridCell cell in cells)
+        foreach (GridCell cell in SelectedCells)
         {
           cell.Border.Background = new SolidColorBrush(color);
         }

@@ -37,7 +37,7 @@ namespace GridLayoutApp
       int rows = 3;
       int cols = 3;
       vm.CreateGrid(rows, cols);
-      vm.MergeCells(0, 0, 1, 2);
+      vm.Merge(0, 0, 1, 2);
       //vm.MergeCells(1, 1, 1, 2);
       //vm.MergeCells(2, 0, 1, 3);
     }

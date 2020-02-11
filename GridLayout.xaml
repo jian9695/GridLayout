@@ -17,12 +17,9 @@
         x:Key="InverseBoolToVisibilityConverter" 
        True ="Collapsed" 
        False ="Visible"/>
-      <local:MultiBooleanToVisibilityConverter x:Key="MultiBoolToVisibilityConverter"/>
       <local:InverseBooleanConverter x:Key="InverseBoolConverter"/>
       <local:PercentageToSizeConverter x:Key="PercentageToSizeConverter"/>
-      <local:PercentageToPositionConverter x:Key="PercentageToPositionConverter"/>
-      <local:MarginConverter x:Key="MarginConverter"/>
-      
+
       <SolidColorBrush x:Key="Esri_Blue3" Color="#80bce0" />
       <SolidColorBrush x:Key="Esri_Blue1" Color="#e2f1fb" />
       <SolidColorBrush x:Key="Esri_Blue7" Color="#90cdf2" />
