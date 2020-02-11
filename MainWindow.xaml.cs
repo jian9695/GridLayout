@@ -27,14 +27,13 @@ namespace GridLayoutApp
       GridLayoutViewModel vm = new GridLayoutViewModel();
       this.GridLayout.DataContext = vm;
       this.DataContext = vm;
-      int rows = 4;
-      int cols = 4;
+      int rows = 10;
+      int cols = 10;
       vm.CreateGrid(rows, cols);
-
       vm.MergeCells(0, 0, 2, 2);
-      //vm.MergeCells(2, 4, 3, 3);
-      //vm.MergeCells(5, 6, 4, 4);
-      //vm.MergeCells(6, 2, 3, 3);
+      vm.MergeCells(2, 2, 3, 3);
+      vm.MergeCells(5, 5, 2, 2);
+      vm.MergeCells(7, 7, 3, 3);
     }
   }
 }
