@@ -663,26 +663,26 @@ namespace GridLayoutApp
         {
           if (cell == targetCell)
             continue;
-          int[] incrementfCounter = null;
+          int[] incrementCounter = null;
           if (!incrementCounters.ContainsKey(cell))
           {
-            incrementfCounter = new int[2] { 0, 0 };
-            incrementCounters[cell] = incrementfCounter;
+            incrementCounter = new int[2] { 0, 0 };
+            incrementCounters[cell] = incrementCounter;
           }
           else
           {
-            incrementfCounter = incrementCounters[cell];
+            incrementCounter = incrementCounters[cell];
           }
 
           if (slicePosition < columnEdges[cell.Column])
           {
-            //increment columns;
-            incrementfCounter[0]++;
+            //increase the column count by 1;
+            incrementCounter[0]++;
           }
           else if (slicePosition < columnEdges[cell.Column + cell.ColumnSpan])
           {
-            //increment column spans;
-            incrementfCounter[1]++;
+            //increase the column span by 1;
+            incrementCounter[1]++;
           }
         }
       }
@@ -801,26 +801,26 @@ namespace GridLayoutApp
         {
           if (cell == targetCell)
             continue;
-          int[] incrementfCounter = null;
+          int[] incrementCounter = null;
           if (!incrementCounters.ContainsKey(cell))
           {
-            incrementfCounter = new int[2] { 0, 0 };
-            incrementCounters[cell] = incrementfCounter;
+            incrementCounter = new int[2] { 0, 0 };
+            incrementCounters[cell] = incrementCounter;
           }
           else
           {
-            incrementfCounter = incrementCounters[cell];
+            incrementCounter = incrementCounters[cell];
           }
 
           if (slicePosition < rowEdges[cell.Row])
           {
-            //increment rows;
-            incrementfCounter[0]++;
+            //increase the row count by 1;
+            incrementCounter[0]++;
           }
           else if (slicePosition < rowEdges[cell.Row + cell.RowSpan])
           {
-            //increment row spans;
-            incrementfCounter[1]++;
+            //increse the row span by 1;
+            incrementCounter[1]++;
           }
         }
       }
