@@ -875,7 +875,7 @@ namespace GridLayoutApp
 
       //Pass 1:
       //(1) For a single-row element, the row height is determined by the element height;
-      //(2) For a contiguous group of rows in which all elements are of equal row span, the row height are determined by dividing the element height by the row span;
+      //(2) For a contiguous group of rows in which all elements are of equal row span, the row of each row is determined by evenly distributing the element height over all the rows;
       //(3) For a contiguous group of rows in which the rows of one element are shared by all the other elements, the heights of these overlapping rows are determined by dividing the height by the row span of that element;
       //(4) The top/bottom edge of a element determines the position of the corresponding row edge, e.g., the edge position of row 0 is the same as the top edge of an element whose starts at row 0.
       for (int row = 0; row < Rows; row++)
@@ -1086,7 +1086,7 @@ namespace GridLayoutApp
 
       //Pass 1:
       //(1) For a single-column element, the column width is determined by the element width;
-      //(2) For a contiguous group of columns in which all elements are of equal column span, the column width are determined by dividing the element width by the column span;
+      //(2) For a contiguous group of columns in which all elements are of equal column span, the width of each column is determined by evenly distributing the element width over all the columns;
       //(3) For a contiguous group of columns in which the columns of one element are shared by all the other elements, the widths of these overlapping columns are determined by dividing the width by the column span of that element;
       //(4) The left/right edge of a element determines the position of the corresponding column edge, e.g., the edge position of column 0 is the same as the left edge of an element whose starts at column 0.
       for (int col = 0; col < Columns; col++)
