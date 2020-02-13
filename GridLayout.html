@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+h2 {
+  position: relative;
+  left: 10%;
+  top: 50%;
+}
+
+  table {
+    border-collapse: collapse;
+  }
+
+  table, td, th {
+    border: 1px solid black;
+    margin: 0;
+    padding: 0;
+  }
+
+  td {
+    max-width: 100%;
+    white-space: nowrap;
+  }
+
+.fullscreen {
+  border: 2px solid red;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  overflow: auto;
+  background: lime; /* Just to visualize the extent */
+}
+
+  .container {
+    position: relative;
+    width: 100%;
+    height: 0;
+    padding-bottom: 56.25%;
+  }
+
+  .video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+</style>
+</head>
+<body>
+
+  <!--<table>
+    <tr>
+      <td>
+        <button height="20px" type="button" onclick="myFunction()">Try it</button>
+      </td>
+      <td height="100px">
+        <div><img id="News" src="https://ichef.bbci.co.uk/news/660/cpsprodpb/B886/production/_110883274_gettyimages-1025376982-1.jpg"></img></div>
+      </td>
+    </tr>
+  </table>-->
+
+  <!--<div style="height: 100px;width:100px;"><img id="News" src="https://ichef.bbci.co.uk/news/660/cpsprodpb/B886/production/_110883274_gettyimages-1025376982-1.jpg"></img></div>-->
+
+  <table style="width:1000px">
+    <tr>
+      <th>Firstname</th>
+      <th>Lastname</th>
+    </tr>
+    <tr>
+      <td style="max-width:20px;">Peter</td>
+      <td><div style="width:100%;height:100%;overflow-x: scroll;"><img id="News" src="https://ichef.bbci.co.uk/news/660/cpsprodpb/B886/production/_110883274_gettyimages-1025376982-1.jpg"></img></div></td>
+    </tr>
+    <tr>
+      <td>Lois</td>
+      <td>
+        <table style="width:100%;">
+          <tr>
+            <th>Firstname</th>
+            <th>Lastname</th>
+          </tr>
+          <tr>
+            <td>Peter</td>
+            <td>Griffin</td>
+          </tr>
+          <tr>
+            <td>Lois</td>
+            <td style="max-width:300px;"><div style="width:100%;height:100%;overflow-x: scroll;"><img id="News" src="https://ichef.bbci.co.uk/news/660/cpsprodpb/B886/production/_110883274_gettyimages-1025376982-1.jpg"></img></div></td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+</body>
+<script>
+  function myFunction() {
+    var table = document.getElementById("News");
+  }
+</script>
+</html>
