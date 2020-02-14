@@ -153,6 +153,7 @@ h2 {
 </body>
 <script>
   var rowPlacer = null;
+
   function myFunction() {
 
   }
@@ -160,25 +161,68 @@ h2 {
   function onPageLoad() {
     onResize();
   }
+  
+  class GridCell
+  {
+    column = 0;
+    row = 0;
+    colSpan = 0;
+    rowSpan = 0;
 
-class GridElement {
-  constructor(name,div,x,y,width,height,column,row,colSpan,rowSpan,contentHeight) {
-    this.name = name;
-    this.div = div;
-    this.x = x;
-    this.y = y;
-    this.width = width;
-    this.height = height;
-    this.column = column;
-    this.row = row;
-    this.colSpan = colSpan;
-    this.rowSpan = rowSpan;
-    this.contentHeight = contentHeight;
+    constructor(column,row,colSpan,rowSpan) {
+      this.column = column;
+      this.row = row;
+      this.colSpan = colSpan;
+      this.rowSpan = rowSpan;
+    }
+
+    left() { return this.column;}
+    right() { return this.column + this.colSpan;}
+    top() { return this.row;}
+    bottom() { return this.row + this.rowSpan;}
+
+    intersects(gridCell)
+    {
+      if(gridCell.left() >= this.right() || gridCell.right <= this.left || gridCell.top() >= this.bottom || gridCell.bottom <= this.top()){
+        return false;
+      }
+      return true;
+    }
+
+    intersect(gridCell)
+    {
+      if(this.intersects(gridCell) == false)
+         return null;
+      var newLeft = Math.min(this.left(), gridCell.left());
+      var newRight = Math.min(this.right(), gridCell.right());
+      var newTop = Math.min(this.top(), gridCell.top());
+      var newBottom = Math.min(this.bottom(), gridCell.bottom());
+      return new GridCell(newLeft, newTop, newRight - newLeft, newBottom - newTop);
+    }
   }
-}
+
+  class GridElement extends GridCell {
+    name = "";
+    x = 0;
+    y = 0;
+    width = 0;
+    height = 0;
+    contentHeight = 0;
+    div = null;
+    constructor(name,div,x,y,width,height,column,row,colSpan,rowSpan,contentHeight) {
+      super(column,row,colSpan,rowSpan);
+      this.name = name;
+      this.div = div;
+      this.x = x;
+      this.y = y;
+      this.width = width;
+      this.height = height;
+      this.contentHeight = contentHeight;
+    }
+  }
 
 //A class that rearranges the elements horizontally based on their actual content size.
- class ContentDrivenGrid {
+  class ContentDrivenGrid {
   
   elements = null;
   rows = 0;
@@ -209,6 +253,7 @@ class GridElement {
     }
 
     this.placeElements();
+    this.compactVerticalSpace();
   }
 
   interpolateRows(startEdge, endEdge)
@@ -373,17 +418,95 @@ class GridElement {
   }
   
   placeElements()
-  {
-      for(var row = 0; row < this.rows; row++){
+  {    
+    for(var i = 0; i < this.rowEdgeOffsetsInPixel.length; i++){
+      this.rowEdgeOffsetsInPixel[i] = -1;
+    }
+    for(var row = 0; row < this.rows; row++){
       for(var col = 0; col < this.columns; col++){
         this.placeElement(row, col);
       }
     }
     return this.rowEdgeOffsetsInPixel;
   }
+
+  getElement(row, col)
+  {
+    var gridCell = this.gridCells[row][col];
+    if (typeof(gridCell) == 'undefined' || gridCell == null){
+      return null;
+    }
+    return gridCell;
+  }
+
+  compactVerticalSpace()
+  {
+    var row = 0;
+    var rowFlags = []
+    for (var row = 0; row < this.rows; row++)
+    {
+      rowFlags[row] = -1;
+    }
+
+    while(row < this.rows) {
+      var elementsInRow = [];
+      for(var n = 0;n < this.elements.length; n++){
+        var elementInRow = this.elements[n];
+        if(elementInRow.top() <= row && elementInRow.bottom() >= row){
+          elementsInRow.push(elementInRow);
+        }
+      }
+      row++;
+      if(elementsInRow.length < 1){continue;}
+
+      var intersectedArea = new GridCell(0, elementsInRow[0].row, 1, elementsInRow[0].rowSpan);
+      for(var n = 1; n < elementsInRow.length; n++){
+        intersectedArea = intersectedArea.intersect(new GridCell(0, elementsInRow[n].row, 1, elementsInRow[n].rowSpan));
+        if(intersectedArea == null){break;}
+      }
+      //No shared rows to remove.
+      if(intersectedArea == null || intersectedArea.rowSpan < 1){continue;}
+
+      var handled = false;
+      for(var n = intersectedArea.top(); n < intersectedArea.bottom(); n++){
+        if(rowFlags[intersectedArea.top()] > 0){
+          handled = true;
+          break;
+        }
+      }
+
+      if(handled == true){
+        break;
+      }
+
+      var extraSpace = Number.MAX_VALUE;
+      for(var n = 0; n < elementsInRow.length; n++){
+        var topEdge = elementsInRow[n].top();
+        var bottomEdge = elementsInRow[n].bottom();
+        var rowSpace = this.rowEdgeOffsetsInPixel[bottomEdge] - this.rowEdgeOffsetsInPixel[topEdge];
+        if(extraSpace > rowSpace){
+          extraSpace = rowSpace;
+        }
+      }
+      //No empty space left to reduce
+      if(extraSpace < 0){continue;}
+
+      var extraSpacePerRow = extraSpace / (intersectedArea.bottom() - intersectedArea.top());
+      var reducedSpace = 0;
+      for(var n = intersectedArea.top(); n < intersectedArea.bottom(); n++){
+        rowFlags[intersectedArea.top()] = 1;
+        this.rowEdgeOffsetsInPixel[n + 1] = this.rowEdgeOffsetsInPixel[n + 1] - extraSpacePerRow - reducedSpace;
+        reducedSpace+=extraSpacePerRow;
+      }
+
+      for(var n = intersectedArea.bottom(); n < this.rowEdgeOffsetsInPixel.length; n++){
+        this.rowEdgeOffsetsInPixel[n] = this.rowEdgeOffsetsInPixel[n] - extraSpace;
+      }
+    }
+  }
 }
 
- function onResize(){
+  function onResize(){
     var layoutMargin = 5;
     var clientWidth = window.innerWidth - layoutMargin * 2;
     var clientHeight = window.innerHeight;
