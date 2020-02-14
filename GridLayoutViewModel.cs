@@ -1306,13 +1306,14 @@ namespace GridLayoutApp
         div += ("cell=" + "\"" + cell.Column.ToString() + "," + cell.Row.ToString() + "," + cell.ColumnSpan.ToString() + "," + cell.RowSpan.ToString() + "\"" + " ");
         div += ("extent=" + "\"" + cell.Extent.X.ToString() + "," + cell.Extent.Y.ToString() + "," + cell.Extent.Width.ToString() + "," + cell.Extent.Height.ToString() + "\"" + " ");
         //div += ("style=" + "\"" + "overflow-x:auto;border-style:solid;" + "width=" + cell.PercentWidth.ToString() + "%;" + "background-color:rgb(" + bkColor.R.ToString() + "," + bkColor.G.ToString() + "," + bkColor.B.ToString() + ");" + "\"" + ">" + "\n");
-        div += ("style=" + "\"" + "overflow-x:auto;border-style:solid;" + "background-color:rgb("+ bkColor.R.ToString() + ","+ bkColor.G.ToString() + "," + bkColor.B.ToString() + ");" + "\"" + ">" + "\n");
+        div += ("style=" + "\"" + "overflow-x:auto;overflow-y:hidden;border-style:solid;" + "background-color:rgb("+ bkColor.R.ToString() + ","+ bkColor.G.ToString() + "," + bkColor.B.ToString() + ");" + "\"" + ">" + "\n");
         div += ("<p>" + cell.TextBlock.Text + "</p>" + "\n");
         div += ("</div>" + "\n");
 
         divs += div;
         index++;
       }
+      System.Diagnostics.Debug.WriteLine("");
       System.Diagnostics.Debug.Write(divs);
       bool success = false;
       float[] rowEdges = GetRowEdgePositions(ref success);
@@ -1323,7 +1324,7 @@ namespace GridLayoutApp
         if (i != rowEdges.Length - 1)
           rowEdgePositions += ",";
       }
-      rowEdgePositions += "\"";
+      rowEdgePositions += "n\"";
       System.Diagnostics.Debug.Write(rowEdgePositions);
     }
     #endregion
