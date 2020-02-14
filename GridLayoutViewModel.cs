@@ -124,10 +124,15 @@ namespace GridLayoutApp
 
     public void ApplyButtonStyle()
     {
-      TextBlock.FontSize = 16;
+      TextBlock.FontSize = 12;
       TextBlock.FontWeight = FontWeights.Bold;
       //cell.TextBlock.Foreground = new SolidColorBrush(Color.FromRgb((byte)_rndColor.Next(256), (byte)_rndColor.Next(256), (byte)_rndColor.Next(256)));
-      TextBlock.Text = Row.ToString().PadRight(2) + "," + Column.ToString().PadRight(2);
+      //TextBlock.Text = Row.ToString().PadRight(2) + "," + Column.ToString().PadRight(2);
+      TextBlock.Text = Extent.ToString() + "\n" 
+        + Row.ToString().PadRight(2) + "," + Column.ToString().PadRight(2) + "," + RowSpan.ToString().PadRight(2) + "," + ColumnSpan.ToString().PadRight(2);
+      //System.Diagnostics.Debug.WriteLine("{" + Column.ToString().PadRight(2) + "," + Row.ToString().PadRight(2) + "," + ColumnSpan.ToString().PadRight(2) + "," + RowSpan.ToString().PadRight(2) + "}" +
+       //         "{" + Extent.X.ToString("F3") + "," + Extent.Y.ToString("F3") + "," + Extent.Width.ToString("F3") + "," + Extent.Height.ToString("F3") + "}");
+
       TextBlock.Foreground = Brushes.Black;
       Border.BorderThickness = new Thickness(1);
     }
@@ -1277,6 +1282,50 @@ namespace GridLayoutApp
 
       return columnEdges;
     }
+
+    public void Print()
+    {
+      string divs = "";
+      int index = 0;
+      foreach(GridCell cell in _uniqueGridElements)
+      {
+        //System.Diagnostics.Debug.WriteLine("{" + Column.ToString().PadRight(2) + "," + Row.ToString().PadRight(2) + "," + ColumnSpan.ToString().PadRight(2) + "," + RowSpan.ToString().PadRight(2) + "}" +
+        //         "{" + Extent.X.ToString("F3") + "," + Extent.Y.ToString("F3") + "," + Extent.Width.ToString("F3") + "," + Extent.Height.ToString("F3") + "}");
+
+        //< div id = "element_1" cell = "0 ,0 ,2 ,1" extent = "0.000,0.000,0.667,0.333" style = "overflow-x:auto;border-style:solid;" >
+
+        //   < img id = "News" src = "" >
+
+        //      </ img >
+
+        //    </ div >
+        Color bkColor = (cell.Border.Background as SolidColorBrush).Color;
+        string div = "<div ";
+        //div += ("element_" + cell.Column.ToString() + "_" + cell.Row.ToString() + "_" + cell.ColumnSpan.ToString() + "_" + cell.RowSpan.ToString() + " ");
+        div += ("id=" + "\"" + "element_" + index.ToString() + "\"" + " ");
+        div += ("cell=" + "\"" + cell.Column.ToString() + "," + cell.Row.ToString() + "," + cell.ColumnSpan.ToString() + "," + cell.RowSpan.ToString() + "\"" + " ");
+        div += ("extent=" + "\"" + cell.Extent.X.ToString() + "," + cell.Extent.Y.ToString() + "," + cell.Extent.Width.ToString() + "," + cell.Extent.Height.ToString() + "\"" + " ");
+        //div += ("style=" + "\"" + "overflow-x:auto;border-style:solid;" + "width=" + cell.PercentWidth.ToString() + "%;" + "background-color:rgb(" + bkColor.R.ToString() + "," + bkColor.G.ToString() + "," + bkColor.B.ToString() + ");" + "\"" + ">" + "\n");
+        div += ("style=" + "\"" + "overflow-x:auto;border-style:solid;" + "background-color:rgb("+ bkColor.R.ToString() + ","+ bkColor.G.ToString() + "," + bkColor.B.ToString() + ");" + "\"" + ">" + "\n");
+        div += ("<p>" + cell.TextBlock.Text + "</p>" + "\n");
+        div += ("</div>" + "\n");
+
+        divs += div;
+        index++;
+      }
+      System.Diagnostics.Debug.Write(divs);
+      bool success = false;
+      float[] rowEdges = GetRowEdgePositions(ref success);
+      string rowEdgePositions = "\"";
+      for (int i = 0; i < rowEdges.Length; i++)
+      {
+        rowEdgePositions += rowEdges[i].ToString();
+        if (i != rowEdges.Length - 1)
+          rowEdgePositions += ",";
+      }
+      rowEdgePositions += "\"";
+      System.Diagnostics.Debug.Write(rowEdgePositions);
+    }
     #endregion
 
     #region Private methods
@@ -1288,6 +1337,7 @@ namespace GridLayoutApp
       NotifyPropertyChanged(nameof(GridElements));
       NotifyPropertyChanged(nameof(GridCells));
       NotifyPropertyChanged(nameof(Graticule));
+      Print();
     }
 
     private void UpdateSelectionExtent()
@@ -1488,8 +1538,6 @@ namespace GridLayoutApp
       }
       return cells;
     }
-
-
     #endregion
 
     #region Commands
