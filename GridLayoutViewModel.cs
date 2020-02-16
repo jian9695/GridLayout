@@ -935,9 +935,9 @@ namespace GridLayoutApp
             bool hasOverlappingExtent = true;
             GridCell minSpanCell = intersectingCells[minSpanRowId];
             System.Drawing.Rectangle minSpanCellExtent = new System.Drawing.Rectangle(0, minSpanCell.Row, 1, minSpanCell.RowSpan);
-            foreach (GridCell cell in intersectingCells)
+            foreach (GridCell intersectedCell in intersectingCells)
             {
-              if (!(new System.Drawing.Rectangle(0, cell.Row, 1, cell.RowSpan)).Contains(minSpanCellExtent))
+              if (!(new System.Drawing.Rectangle(0, intersectedCell.Row, 1, intersectedCell.RowSpan)).Contains(minSpanCellExtent))
               {
                 hasOverlappingExtent = false;
                 break;
@@ -1038,13 +1038,13 @@ namespace GridLayoutApp
           rowHeights[startRow] = rowSize;
           startRow++;
         }
-        for (int rowToSet = 0; rowToSet < Rows; rowToSet++)
+        for (int edgeToSet = 0; edgeToSet < Rows; edgeToSet++)
         {
-          if (!float.IsNaN(rowEdges[rowToSet + 1]))
+          if (!float.IsNaN(rowEdges[edgeToSet + 1]))
             continue;
-          if (float.IsNaN(rowEdges[rowToSet]) || float.IsNaN(rowHeights[rowToSet]))
+          if (float.IsNaN(rowEdges[edgeToSet]) || float.IsNaN(rowHeights[edgeToSet]))
             continue;
-          rowEdges[rowToSet + 1] = rowEdges[rowToSet] + rowHeights[rowToSet];
+          rowEdges[edgeToSet + 1] = rowEdges[edgeToSet] + rowHeights[edgeToSet];
         }
       }
 
@@ -1249,13 +1249,13 @@ namespace GridLayoutApp
           columnWidths[startCol] = colSize;
           startCol++;
         }
-        for (int colToSet = 0; colToSet < Columns; colToSet++)
+        for (int edgeToSet = 0; edgeToSet < Columns; edgeToSet++)
         {
-          if (!float.IsNaN(columnEdges[colToSet + 1]))
+          if (!float.IsNaN(columnEdges[edgeToSet + 1]))
             continue;
-          if (float.IsNaN(columnEdges[colToSet]) || float.IsNaN(columnWidths[colToSet]))
+          if (float.IsNaN(columnEdges[edgeToSet]) || float.IsNaN(columnWidths[edgeToSet]))
             continue;
-          columnEdges[colToSet + 1] = columnEdges[colToSet] + columnWidths[colToSet];
+          columnEdges[edgeToSet + 1] = columnEdges[edgeToSet] + columnWidths[edgeToSet];
         }
       }
 

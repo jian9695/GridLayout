@@ -166,46 +166,56 @@ h2 {
     onResize();
   }
   
-  class GridCell
+  class Extent
   {
-    column = 0;
-    row = 0;
-    colSpan = 0;
-    rowSpan = 0;
+    x = 0;
+    y = 0;
+    width = 0;
+    height = 0;
 
-    constructor(column,row,colSpan,rowSpan) {
-      this.column = column;
-      this.row = row;
-      this.colSpan = colSpan;
-      this.rowSpan = rowSpan;
+    constructor(x,y,width,height) {
+      this.x = x;
+      this.y = y;
+      this.width = width;
+      this.height = height;
     }
 
-    left() { return this.column;}
-    right() { return this.column + this.colSpan;}
-    top() { return this.row;}
-    bottom() { return this.row + this.rowSpan;}
+    get left() { return this.x;}
+    set left(value) {extent.x = value; }
+    get top() { return this.y;}
+    set top(value) {extent.y = value; }
+    get right() { return this.x + this.width;}
+    get bottom() { return this.y + this.height;}
 
-    intersects(gridCell)
+    intersects(extent)
     {
-      if(gridCell.left() >= this.right() || gridCell.right <= this.left || gridCell.top() >= this.bottom || gridCell.bottom <= this.top()){
+      if(extent.left >= this.right || extent.right <= this.left || extent.top >= this.bottom || extent.bottom <= this.top){
         return false;
       }
       return true;
     }
 
-    intersect(gridCell)
+    intersect(extent)
     {
-      if(this.intersects(gridCell) == false)
+      if(this.intersects(extent) == false)
          return null;
-      var newLeft = Math.max(this.left(), gridCell.left());
-      var newRight = Math.min(this.right(), gridCell.right());
-      var newTop = Math.max(this.top(), gridCell.top());
-      var newBottom = Math.min(this.bottom(), gridCell.bottom());
-      return new GridCell(newLeft, newTop, newRight - newLeft, newBottom - newTop);
+      var newLeft = Math.max(this.left, extent.left);
+      var newRight = Math.min(this.right, extent.right);
+      var newTop = Math.max(this.top, extent.top);
+      var newBottom = Math.min(this.bottom, extent.bottom);
+      return new Extent(newLeft, newTop, newRight - newLeft, newBottom - newTop);
+    }
+
+    contains(extent)
+    {
+      if(this.left <= extent.left && this.right >= extent.right && this.top <= extent.top && this.bottom >= extent.bottom){
+        return true;
+      }
+      return false;
     }
   }
 
-  class GridElement extends GridCell {
+  class GridElement {
     name = "";
     x = 0;
     y = 0;
@@ -213,14 +223,25 @@ h2 {
     height = 0;
     contentHeight = 0;
     div = null;
+    cellExtent = null;
+    extent = null;
+    row = 0;
+    column = 0;
+    rowSpan = 1;
+    columnSpan = 1;
     constructor(name,div,x,y,width,height,column,row,colSpan,rowSpan,contentHeight) {
-      super(column,row,colSpan,rowSpan);
+      this.cellExtent = new Extent(column,row,colSpan,rowSpan);
+      this.extent = new Extent(x,y,width,height);
       this.name = name;
       this.div = div;
       this.x = x;
       this.y = y;
       this.width = width;
       this.height = height;
+      this.row = row;
+      this.column = column;
+      this.rowSpan = rowSpan;
+      this.columnSpan = colSpan;
       this.contentHeight = contentHeight;
     }
   }
@@ -259,6 +280,15 @@ h2 {
     this.placeElements();
     this.compactVerticalSpace();
   }
+
+  get PercentTop() { return this.extent.top; }
+  set PercentTop(value) {this.extent.top = value; }
+  get PercentLeft() { return this.extent.left; }
+  set PercentLeft(value) {this.extent.left = value; }
+  get PercentWidth() { return this.extent.Width; }
+  set PercentWidth(value) {this.extent.width = value; }
+  get PercentHeight() { return this.extent.height; }
+  set PercentHeight(value) {this.extent.height = value; }
 
   interpolateRows(startEdge, endEdge)
   {
@@ -455,26 +485,28 @@ h2 {
   
     while(row < this.rows) {
       var elementsInRow = [];
+      var topEdge = row;
+      var bottomEdge = row + 1;
       for(var n = 0;n < this.elements.length; n++){
         var elementInRow = this.elements[n];
-        if(elementInRow.top() <= row && elementInRow.bottom() >= row + 1){
+        if(elementInRow.cellExtent.top <= topEdge && elementInRow.cellExtent.bottom >= bottomEdge){
           elementsInRow.push(elementInRow);
         }
       }
       row++;
       if(elementsInRow.length < 1){continue;}
 
-      var intersectedArea = new GridCell(0, elementsInRow[0].row, 1, elementsInRow[0].rowSpan);
+      var intersectedArea = new Extent(0, elementsInRow[0].row, 1, elementsInRow[0].rowSpan);
       for(var n = 1; n < elementsInRow.length; n++){
-        intersectedArea = intersectedArea.intersect(new GridCell(0, elementsInRow[n].row, 1, elementsInRow[n].rowSpan));
+        intersectedArea = intersectedArea.intersect(new Extent(0, elementsInRow[n].row, 1, elementsInRow[n].rowSpan));
         if(intersectedArea == null){break;}
       }
       //No shared rows to remove.
-      if(intersectedArea == null || intersectedArea.rowSpan < 1){continue;}
+      if(intersectedArea == null || intersectedArea.height < 1){continue;}
 
       var handled = false;
-      for(var n = intersectedArea.top(); n < intersectedArea.bottom(); n++){
-        if(rowFlags[intersectedArea.top()] > 0){
+      for(var n = intersectedArea.top; n < intersectedArea.bottom; n++){
+        if(rowFlags[intersectedArea.top] > 0){
           handled = true;
           break;
         }
@@ -485,10 +517,10 @@ h2 {
       }
 
       var extraSpace = Number.MAX_VALUE;
-      var summedOffset = this.rowEdgeOffsetsInPixel[intersectedArea.bottom()] - this.rowEdgeOffsetsInPixel[intersectedArea.top()];
+      var summedOffset = this.rowEdgeOffsetsInPixel[intersectedArea.bottom] - this.rowEdgeOffsetsInPixel[intersectedArea.top];
       for(var n = 0; n < elementsInRow.length; n++){
-        var topEdge = elementsInRow[n].top();
-        var bottomEdge = elementsInRow[n].bottom();
+        var topEdge = elementsInRow[n].cellExtent.top;
+        var bottomEdge = elementsInRow[n].cellExtent.bottom;
         var fraction = summedOffset/(this.rowEdgeOffsetsInPixel[bottomEdge] - this.rowEdgeOffsetsInPixel[topEdge]);
         var extraSpaceInRow = this.rowEdgeOffsetsInPixel[bottomEdge] - this.rowEdgeOffsetsInPixel[topEdge] - elementsInRow[n].contentHeight;
         extraSpaceInRow = extraSpaceInRow * fraction;
@@ -500,17 +532,239 @@ h2 {
       if(extraSpace <= 1){continue;}
 
       var reducedSpace = 0;
-      for(var n = intersectedArea.top(); n < intersectedArea.bottom(); n++){
-        rowFlags[intersectedArea.top()] = 1;
+      for(var n = intersectedArea.top; n < intersectedArea.bottom; n++){
+        rowFlags[intersectedArea.top] = 1;
         var fraction = (this.rowEdgeOffsetsInPixel[n + 1] - this.rowEdgeOffsetsInPixel[n])/summedOffset;
         this.rowEdgeOffsetsInPixel[n + 1] = this.rowEdgeOffsetsInPixel[n + 1] - (extraSpace * fraction) - reducedSpace;
         reducedSpace += (extraSpace * fraction);
       }
 
-      for(var n = intersectedArea.bottom() + 1; n < this.rowEdgeOffsetsInPixel.length; n++){
+      for(var n = intersectedArea.bottom + 1; n < this.rowEdgeOffsetsInPixel.length; n++){
         this.rowEdgeOffsetsInPixel[n] = this.rowEdgeOffsetsInPixel[n] - extraSpace;
       }
     }
+  }
+
+  getRowEdgePositionsInPercent()
+  {
+    var cellsOrderedByRow = [];
+    for (var row = 0; row < this.rows; row++)
+    {
+      var topEdge = row;
+      var bottomEdge = row + 1;
+      var elementsInRow = [];
+      for(var n = 0;n < this.elements.length; n++){
+        var elementInRow = this.elements[n];
+        if(elementInRow.top <= topEdge && elementInRow.bottom >= bottomEdge){
+          elementsInRow.push(elementInRow);
+        }
+      }
+      cellsOrderedByRow.push(cellsOrderedByRow);
+    }
+
+    var rowHeights = [];
+    var rowEdges = [];
+    rowEdges.push(0);
+    for (var row = 0; row < this.rows; row++)
+    {
+      rowEdges.push(null);
+      rowHeights.push(null);
+    }
+
+      //Pass 1:
+      //(1) For a single-row element, the row height is determined by the element height;
+      //(2) For a contiguous group of rows in which all elements are of equal row span, the row of each row is determined by evenly distributing the element height over all the rows;
+      //(3) For a contiguous group of rows in which the rows of one element are shared by all the other elements, the heights of these overlapping rows are determined by dividing the height by the row span of that element;
+      //(4) The top/bottom edge of a element determines the position of the corresponding row edge, e.g., the edge position of row 0 is the same as the top edge of an element whose starts at row 0.
+      for (var row = 0; row < this.rows; row++)
+      {
+        if (rowHeights[row] != null){continue;}
+
+        var intersectingCells = cellsOrderedByRow[row];
+        var topEdge = row;
+        var bottomEdge = row + 1;
+        if (intersectingCells == null || intersectingCells.length == 0)
+        {
+          rowHeights[row] = 0;
+          rowEdges[bottomEdge] = rowEdges[topEdge];
+          continue;
+        }
+
+        var isUniformSpan = true;
+        var minSpanRowId = 0;
+        var rowSize = null;
+        var id = -1;
+        //System.Drawing.Rectangle overlappedExtent = intersectingCells[0].CellExtent;
+        //overlappedExtent = new System.Drawing.Rectangle(overlappedExtent.X, 0, overlappedExtent.Height, 1);
+        for (var n = 0; n < intersectingCells.length; n++)
+        {
+          var cell = intersectingCells[n];
+          id++;
+          rowEdges[cell.row] = cell.extent.top;
+          rowEdges[cell.row + cell.rowSpan] = cell.extent.bottom;
+          if (isUniformSpan && (cell.row != intersectingCells[0].row || cell.rowSpan != intersectingCells[0].rowSpan))
+            isUniformSpan = false;
+          //overlappedExtent.Intersect(new System.Drawing.Rectangle(cell.CellExtent.X, 0, cell.CellExtent.Height, 1));
+          if (cell.rowSpan == 1)
+          {
+            rowSize = cell.percentHeight;
+            break;
+          }
+          if (cell.rowSpan < intersectingCells[minSpanRowId].rowSpan)
+          {
+            minSpanRowId = id;
+          }
+        }
+
+        rowHeights[row] = rowSize;
+        if (rowSize == null)
+        {
+          if (isUniformSpan)
+          {
+            rowHeights[row] = intersectingCells[0].percentHeight / intersectingCells[0].rowSpan;
+          }
+          else
+          {
+            var hasOverlappingExtent = true;
+            var minSpanCell = intersectingCells[minSpanRowId];
+            var minSpanCellExtent = new Extent(0, minSpanCell.row, 1, minSpanCell.rowSpan);
+            for (var m = 0; m < intersectingCells.length; m++)
+            {
+              var cellExtent = new Extent(0, intersectingCells[m].row, 1, intersectingCells[m].rowSpan);
+              if (cellExtent.contains(minSpanCellExtent) == false)
+              {
+                hasOverlappingExtent = false;
+                break;
+              }
+            }
+
+            if (hasOverlappingExtent)
+            {
+              rowSize = minSpanCell.percentHeight / minSpanCell.rowSpan;
+              rowHeights[row] = rowSize;
+              for (var rowToSet = minSpanCell.row; rowToSet < minSpanCell.row + minSpanCell.rowSpan; rowToSet++)
+              {
+                rowHeights[rowToSet] = rowSize;
+              }
+            }
+          }
+        }
+      }
+
+      //Pass 2:
+      //(1) For a multi-row element, if the row heights of all but one row are knowned, the unknown row height is determined by subtracting the summed height of the knowned rows from the element height;
+      for (var row = 0; row < this.rows; row++)
+      {
+        if (rowHeights[row] != null){continue;}
+
+        var intersectingCells = cellsOrderedByRow[row];
+        for (var n = 0; n < intersectingCells.length; n++)
+        {
+          var cell = intersectingCells[n];
+          if (cell.rowSpan == 1 && rowHeights[cell.row] != null)
+          {
+            rowHeights[row] = cell.percentHeight;
+            break;
+          }
+          var rowSize = cell.percentHeight;
+          var isSet = true;
+          for (var rowToGet = cell.row; rowToGet < cell.row + cell.rowSpan; rowToGet++)
+          {
+            if (rowToGet == row){continue;}
+              
+            if (rowHeights[rowToGet] == null)
+            {
+              isSet = false;
+              break;
+            }
+            rowSize -= rowHeights[rowToGet];
+          }
+
+          if (isSet == true){rowHeights[row] = rowSize;} 
+        }
+      }
+
+      //Pass 3:
+      //(1) First pass to determine positions at edges where both the positions of the top neighboring edge and the row height are known.
+      for (var row = 0; row < this.rows; row++)
+      {
+        var topEdge = row;
+        var bottomEdge = row + 1;
+        if (rowEdges[topEdge] == null || rowHeights[row] == null){continue;}
+ 
+        rowEdges[bottomEdge] = rowEdges[topEdge] + rowHeights[row];
+      }
+
+      //Pass 4:
+      //(1) For a contiguous group of rows shared by all overlapping elements across the rows, the total height of these rows are is equal to the difference of the bottom edge and top edge positions (if both are known), and the total height is evenly distributed over the rows to determine the row height;
+      for (var row = 0; row < this.rows; row++)
+      {
+        if (rowHeights[row] != null){continue;}
+          
+        if (rowEdges[row] == null){continue;}
+ 
+        var startRow = row;
+        var endRow = row;
+        while (endRow < this.rows - 1)
+        {
+          if (rowHeights[endRow] != null)
+          {
+            endRow--;
+            break;
+          }
+          endRow++;
+        }
+        var topEdge = row;
+        var bottomEdge = endRow + 1;
+        while (bottomEdge > topEdge)
+        {
+          if (rowEdges[bottomEdge] == null){
+            bottomEdge--;
+          }else{
+            break;
+          }
+
+        }
+        if (rowEdges[topEdge] == null || rowEdges[bottomEdge] == null){continue;}
+
+        var rowSize = (rowEdges[bottomEdge] - rowEdges[topEdge]) / (endRow - startRow + 1);
+        while (startRow <= endRow)
+        {
+          rowHeights[startRow] = rowSize;
+          startRow++;
+        }
+        for (var rowToSet = 0; rowToSet < this.rows; rowToSet++)
+        {
+          if (rowEdges[rowToSet + 1] != null){continue;}
+
+          if (rowEdges[rowToSet] == null || rowHeights[rowToSet] == null){continue;}
+
+          rowEdges[rowToSet + 1] = rowEdges[rowToSet] + rowHeights[rowToSet];
+        }
+      }
+
+      //Pass 5:
+      //(1) Second pass to determine positions at unkown edges where both the positions of the top neighboring edge and the row height are known.
+      for (var row = 0; row < this.rows; row++)
+      {
+        if (rowEdges[row + 1] != null){continue;}
+
+        var topEdge = row;
+        var bottomEdge = row + 1;
+        if (rowEdges[topEdge] == null || rowHeights[row] == null){continue;}
+
+        rowEdges[bottomEdge] = rowEdges[topEdge] + rowHeights[row];
+      }
+
+      //Return true only if all edges are known.
+      success = true;
+      for (var row = 0; row < Rows; row++)
+      {
+        if (rowEdges[row + 1] == null || rowHeights[row] == null)
+          success = false;
+      }
+      alert(success);
+      return rowEdges;
   }
 }
 
