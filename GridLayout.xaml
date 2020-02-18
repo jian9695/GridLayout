@@ -192,8 +192,14 @@
         <Setter Property="Template">
           <Setter.Value>
             <ControlTemplate TargetType="{x:Type Button}">
-              <Rectangle x:Name="_Border" Margin="{Binding Margin}" Stroke="Black" StrokeThickness="1" StrokeDashArray="4 4">
+              <Rectangle x:Name="_Border" Margin="{Binding Margin}" Stroke="Transparent" StrokeThickness="4" 
+                         >
               </Rectangle>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Setter TargetName="_Border" Property="Stroke" Value="Black"/>
+                </Trigger>
+              </ControlTemplate.Triggers>
             </ControlTemplate>
           </Setter.Value>
         </Setter>
@@ -201,7 +207,7 @@
     </ResourceDictionary>
   </UserControl.Resources>
 
-  <Grid>
+  <Grid PreviewMouseMove="Grid_PreviewMouseMove">
     <ItemsControl ItemsSource="{Binding GridElements}" ItemContainerStyle="{StaticResource CanvasContainerStyle}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>
@@ -218,7 +224,7 @@
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>
-    <ItemsControl ItemsSource="{Binding Graticule}" ItemContainerStyle="{StaticResource CanvasContainerStyle}">
+    <ItemsControl ItemsSource="{Binding GridElements}" ItemContainerStyle="{StaticResource CanvasContainerStyle}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>
           <Canvas x:Name="MainCanvas"/>
@@ -226,7 +232,15 @@
       </ItemsControl.ItemsPanel>
       <ItemsControl.ItemTemplate>
         <DataTemplate>
-          <Button Style="{StaticResource GraticuleStyle}"/>
+          <Button Style="{StaticResource GraticuleStyle}"
+                  PreviewDragEnter="Graticule_PreviewDragEnter"
+                  PreviewDragLeave="Graticule_PreviewDragLeave"
+                  PreviewDragOver="Graticule_PreviewDragOver"
+                  PreviewDrop="Graticule_PreviewDrop"
+                  MouseEnter="Graticule_MouseEnter"
+                  PreviewMouseDown="Graticule_PreviewMouseDown"
+                  PreviewMouseUp="Graticule_PreviewMouseUp"
+                  />
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>

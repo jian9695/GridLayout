@@ -72,6 +72,7 @@ namespace GridLayoutApp
     private bool _useImage = false;
     private bool _isLocked = false;
     private bool _displayContent = true;
+    private bool _isResizing = false;
     private GridLayoutViewModel _parent = null;
     private System.Drawing.RectangleF _extent = new System.Drawing.RectangleF(0, 0, 1, 1);
 
@@ -216,6 +217,16 @@ namespace GridLayoutApp
       {
          _isSelected = value;
         NotifyPropertyChanged(nameof(IsSelected));
+      }
+    }
+
+    public bool IsResizing
+    {
+      get { return _isResizing; }
+      set
+      {
+        _isResizing = value;
+        NotifyPropertyChanged(nameof(IsResizing));
       }
     }
 
@@ -421,24 +432,6 @@ namespace GridLayoutApp
       get { return _uniqueGridElements; }
     }
 
-    public IReadOnlyCollection<GridCell> Graticule
-    {
-      get
-      {
-        List<GridCell> graticuleCells = new List<GridCell>();
-        foreach (GridCell cell in _uniqueGridElements)
-        {
-          GridCell colCell = new GridCell(0, 0, 1, 1, this);
-          colCell.Extent = new System.Drawing.RectangleF(cell.Extent.X, 0, cell.Extent.Width, 1);
-          GridCell rowCell = new GridCell(0, 0, 1, 1, this);
-          rowCell.Extent = new System.Drawing.RectangleF(0, cell.Extent.Y, 1, cell.Extent.Height);
-          graticuleCells.Add(rowCell);
-          graticuleCells.Add(colCell);
-        }
-        return graticuleCells;
-      }
-    }
-
     public GridCell EditedCell
     {
       get { return _editedCell; }
@@ -540,7 +533,6 @@ namespace GridLayoutApp
       NotifyPropertyChanged(nameof(Columns));
       NotifyPropertyChanged(nameof(GridElements));
       NotifyPropertyChanged(nameof(GridCells));
-      NotifyPropertyChanged(nameof(Graticule));
     }
 
     public void Merge(int startRow, int startCol, int rowSpan, int colSpan)
@@ -1337,7 +1329,6 @@ namespace GridLayoutApp
       NotifyPropertyChanged(nameof(Columns));
       NotifyPropertyChanged(nameof(GridElements));
       NotifyPropertyChanged(nameof(GridCells));
-      NotifyPropertyChanged(nameof(Graticule));
       Print();
     }
 

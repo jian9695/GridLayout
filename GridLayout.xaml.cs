@@ -137,7 +137,131 @@ namespace GridLayoutApp
       if (vm == null)
         return;
     }
+    ////Generate horizontal GridSplitters
+    //for (int row = 0; row < vm.Rows - 1; row++)
+    //{
+    //  int startIndex = 0;
+    //  int span = 0;
+    //  for (int col = 0; col < vm.Columns; col++)
+    //  {
+    //    GridCell cell = vm.GridCells[row, col];
+    //    bool isBreak = false;
+    //    bool isGroup = cell.IsGroup;
+    //    bool isGroupEdge = (isGroup && (cell.Row + cell.RowSpan - 1 == row));
+    //    bool isStart = false;
+    //    if (col == 0)
+    //    {
+    //      span++;
+    //      continue;
+    //    }
 
+    //    if (isGroup && !isGroupEdge)
+    //    {
+    //      if (cell.Column + cell.ColumnSpan == col)
+    //      {
+    //        isBreak = true;
+    //      }
+    //      else if (cell.Column == col)
+    //      {
+    //        isBreak = true;
+    //        span--;
+    //      }
+    //      isStart = true;
+    //    }
+    //    else if (col == vm.Columns - 1)
+    //    {
+    //      isBreak = true;
+    //    }
+
+    //    span++;
+
+    //    if (isBreak)
+    //    {
+    //      if (span > 0)
+    //      {
+    //        GridSplitter splitter = new GridSplitter();
+    //        Grid.SetRow(splitter, row);
+    //        Grid.SetColumn(splitter, startIndex);
+    //        Grid.SetColumnSpan(splitter, span);
+    //        splitter.HorizontalAlignment = HorizontalAlignment.Stretch;
+    //        splitter.VerticalAlignment = VerticalAlignment.Bottom;
+    //        splitter.ResizeDirection = GridResizeDirection.Rows;
+    //        splitter.Height = 5;
+    //        splitter.Style = Resources["GridSplitterStyle"] as Style;
+    //        MainGrid.Children.Add(splitter);
+    //      }
+    //      startIndex = col + 1;
+    //      span = 0;
+    //    }
+    //    else if (isStart)
+    //    {
+    //      startIndex = col + 1;
+    //      span = 0;
+    //    }
+    //  }
+    //}
+
+    ////Generate vertical GridSplitters
+    //for (int col = 0; col < vm.Columns - 1; col++)
+    //{
+    //  int startIndex = 0;
+    //  int span = 0;
+    //  for (int row = 0; row < vm.Rows; row++)
+    //  {
+    //    GridCell cell = vm.GridCells[row, col];
+    //    bool isBreak = false;
+    //    bool isGroup = cell.IsGroup;
+    //    bool isGroupEdge = (isGroup && (cell.Column + cell.ColumnSpan - 1 == col));
+    //    bool isStart = false;
+    //    if (row == 0)
+    //    {
+    //      span++;
+    //      continue;
+    //    }
+
+    //    if (isGroup && !isGroupEdge)
+    //    {
+    //      if (cell.Row + cell.RowSpan == row)
+    //      {
+    //        isBreak = true;
+    //      }
+    //      else if (cell.Row == row)
+    //      {
+    //        isBreak = true;
+    //        span--;
+    //      }
+    //      isStart = true;
+    //    }
+    //    else if (row == vm.Rows - 1)
+    //    {
+    //      isBreak = true;
+    //    }
+
+    //    span++;
+
+    //    if (isBreak)
+    //    {
+    //      if (span > 0)
+    //      {
+    //        GridSplitter splitter = new GridSplitter();
+    //        Grid.SetColumn(splitter, col);
+    //        Grid.SetRow(splitter, startIndex);
+    //        Grid.SetRowSpan(splitter, span);
+    //        splitter.HorizontalAlignment = HorizontalAlignment.Right;
+    //        splitter.VerticalAlignment = VerticalAlignment.Stretch;
+    //        splitter.ResizeDirection = GridResizeDirection.Columns;
+    //        splitter.Width = 5;
+    //        splitter.Style = this.Resources["GridSplitterStyle"] as Style;
+    //        MainGrid.Children.Add(splitter);
+    //      }
+    //    }
+    //    else if (isStart)
+    //    {
+    //      startIndex = row + 1;
+    //      span = 0;
+    //    }
+    //  }
+    //}
     private void Button_KeyUp(object sender, KeyEventArgs e)
     {
       Button button = sender as Button;
@@ -279,6 +403,83 @@ namespace GridLayoutApp
         return;
       vm.ClearSelection();
       vm.AddToSelection(cell);
+    }
+
+    private void Graticule_PreviewDragEnter(object sender, DragEventArgs e)
+    {
+
+    }
+
+    private void Graticule_PreviewDragLeave(object sender, DragEventArgs e)
+    {
+
+    }
+
+    private void Graticule_PreviewDragOver(object sender, DragEventArgs e)
+    {
+
+    }
+
+    private void Graticule_PreviewDrop(object sender, DragEventArgs e)
+    {
+
+    }
+
+    GridCell _elementResizing = null;
+    Point _mouseDownPoint = new Point(0, 0);
+    private void Graticule_MouseEnter(object sender, MouseEventArgs e)
+    {
+      Button button = sender as Button;
+      if (button?.DataContext == null)
+        return;
+      GridCell cell = button.DataContext as GridCell;
+      if (cell == null)
+        return;
+      cell.IsResizing = true;
+    }
+
+    private void Graticule_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+      Button button = sender as Button;
+      if (button?.DataContext == null)
+        return;
+      GridCell cell = button.DataContext as GridCell;
+      if (cell == null)
+        return;
+      cell.IsResizing = true;
+      _elementResizing = cell;
+      _elementResizing.IsResizing = true;
+      _mouseDownPoint = Mouse.GetPosition(this);
+    }
+
+    private void Graticule_PreviewMouseUp(object sender, MouseButtonEventArgs e)
+    {
+      Button button = sender as Button;
+      if (button?.DataContext == null)
+        return;
+      GridCell cell = button.DataContext as GridCell;
+      if (cell == null)
+        return;
+      cell.IsResizing = false;
+      if (_elementResizing != null)
+      {
+        _elementResizing.IsResizing = false;
+        _elementResizing = null;
+      }
+    }
+
+    private void Grid_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+      if (_elementResizing != null)
+      {
+        Point point = Mouse.GetPosition(this);
+        double deltaX = point.X - _mouseDownPoint.X;
+        double deltaPercentX = deltaX / this.ActualWidth;
+        _mouseDownPoint = point;
+        _elementResizing.PercentLeft += (float)deltaPercentX;
+        _elementResizing.PercentWidth -= (float)deltaPercentX;
+        System.Diagnostics.Debug.WriteLine("deltaX: " + deltaX.ToString());
+      }
     }
   }
 }
